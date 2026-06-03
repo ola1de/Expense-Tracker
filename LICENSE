@@ -16,6 +16,6 @@ If you prefer doing it entirely inside the web browser:
 3. Under **Build and deployment** > **Branch**, select **`main`** (or your primary branch) and directory **`/ (root)`**.
 4. Click **Save**.
 5. After a minute, your app will be hosted live on your custom GitHub Pages address:  
-   `https://YOUR_GITHUB_USERNAME.github.io/full-time-wins/`
+   `https://YOUR_GITHUB_USERNAME.github.io/Expense-Tracker/`
 
 Once your GitHub Pages link is live, copy it and paste it into the primary download/visit buttons inside your portfolio blog post.
