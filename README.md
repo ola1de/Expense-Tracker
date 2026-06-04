@@ -36,7 +36,7 @@ Grab the latest Windows installer from the [**Releases**](../../releases) page:
 
 ### Steps
 ```bash
-git clone https://github.com/<your-username>/expense-tracker.git
+git clone https://github.com/ola1de/expense-tracker.git
 cd expense-tracker
 npm install
 npm start          # run in dev
