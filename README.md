@@ -2,7 +2,7 @@
 
 A **fully offline, cross-platform desktop expense tracker** built with Electron. Track your daily expenses, visualize spending with interactive charts, and export your data to Excel — all without ever needing an internet connection.
 
-![Expense Tracker Screenshot](https://via.placeholder.com/1200x700/0f172a/22c55e?text=Expense+Tracker+Dashboard)
+![Expense Tracker Screenshot](https://github.com/ola1de/Expense-Tracker/blob/main/Screenshot.png?raw=true)
 
 ---
 
@@ -22,7 +22,7 @@ A **fully offline, cross-platform desktop expense tracker** built with Electron.
 
 Grab the latest Windows installer from the [**Releases**](../../releases) page:
 
-➡️ **[Download ExpenseTracker-Setup-1.0.0.exe](../../releases/latest)**
+➡️ **[Download ExpenseTracker-Setup-1.0.0.exe](https://github.com/ola1de/Expense-Tracker/releases/download/v1.0.0/ExpenseTracker-Setup-1.0.0.exe)**
 
 > Windows 10 / 11 (x64). Run the installer, choose your install folder, and you're done.
 
