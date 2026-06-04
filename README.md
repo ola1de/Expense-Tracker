@@ -2,7 +2,7 @@
 
 A **fully offline, cross-platform desktop expense tracker** built with Electron. Track your daily expenses, visualize spending with interactive charts, and export your data to Excel — all without ever needing an internet connection.
 
-![Expense Tracker Screenshot](https://github.com/ola1de/Expense-Tracker/blob/main/Screenshot.png?raw=true)
+![Expense Tracker Screenshot](https://raw.githubusercontent.com/ola1de/Expense-Tracker/main/Screenshot.png)
 
 ---
 
