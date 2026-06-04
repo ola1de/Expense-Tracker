@@ -1,0 +1,2104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<title>Expense Tracker &amp; Database</title>
+<link href="vendor/fonts/inter.css" rel="stylesheet"/>
+<link href="vendor/fa/all.min.css" rel="stylesheet"/>
+<script src="vendor/chart.js"></script>
+<script src="vendor/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg-grad: linear-gradient(135deg,#0b1224 0%,#142042 50%,#1a1140 100%);
+  --glass-bg: rgba(255,255,255,0.06);
+  --glass-bg-strong: rgba(255,255,255,0.10);
+  --glass-border: rgba(255,255,255,0.18);
+  --surface-solid:#1a2447;
+  --text:#eaf0ff;
+  --text-dim:#a9b4cf;
+  --accent:#22d3ee;
+  --accent-2:#7c9cff;
+  --danger:#ff6b81;
+  --warn:#fbbf24;
+  --ok:#34d399;
+  --shadow: 0 10px 40px rgba(0,0,0,0.35);
+  --radius: 18px;
+  --pad: clamp(10px, 2vw, 22px);
+  --fs-base: clamp(15px, 1.1vw, 17px);
+  --fs-h1: clamp(20px, 2.4vw, 30px);
+  --fs-h2: clamp(16px, 1.6vw, 20px);
+  --hit: 48px;
+}
+body.light{
+  --bg-grad: linear-gradient(135deg,#eef2ff 0%,#f7e8ff 50%,#e0f2fe 100%);
+  --glass-bg: rgba(255,255,255,0.55);
+  --glass-bg-strong: rgba(255,255,255,0.75);
+  --glass-border: rgba(20,30,60,0.15);
+  --surface-solid:#ffffff;
+  --text:#0f172a;
+  --text-dim:#475569;
+  --accent:#2563eb;
+  --accent-2:#7c3aed;
+  --shadow: 0 10px 30px rgba(60,80,160,0.18);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;overflow-x:hidden}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  font-size:var(--fs-base);
+  color:var(--text);
+  background:var(--bg-grad);
+  background-attachment:fixed;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent)}
+.container{width:100%;max-width:1400px;margin:0 auto;padding:var(--pad)}
+@media(min-width:1600px){.container{max-width:1560px}}
+.glass{
+  background:var(--glass-bg);
+  border:1px solid var(--glass-border);
+  border-radius:var(--radius);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: var(--shadow);
+}
+.glass-strong{background:var(--glass-bg-strong)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:var(--hit);padding:12px 18px;border-radius:14px;
+  background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  color:#fff;border:none;font-weight:600;cursor:pointer;
+  box-shadow:0 6px 20px rgba(34,211,238,0.25);
+  transition:transform .15s ease, box-shadow .15s ease, opacity .15s;
+  font-size:var(--fs-base);
+}
+.btn:hover{transform:translateY(-1px);box-shadow:0 10px 28px rgba(124,156,255,0.35)}
+.btn.ghost{background:transparent;border:1px solid var(--glass-border);color:var(--text);box-shadow:none}
+.btn.danger{background:linear-gradient(135deg,#ef4444,#ff6b81)}
+.btn.warn{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#1f1300}
+.btn.icon{min-width:var(--hit);padding:12px;border-radius:50%}
+.input, select, textarea{
+  width:100%;min-height:var(--hit);padding:12px 14px;border-radius:12px;
+  background:var(--glass-bg-strong);
+  color:var(--text);border:1px solid var(--glass-border);
+  font-family:inherit;font-size:var(--fs-base);outline:none;
+  -webkit-appearance:none;appearance:none;
+}
+select{background-image:linear-gradient(45deg,transparent 50%,var(--text) 50%),linear-gradient(135deg,var(--text) 50%,transparent 50%);background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:36px}
+/* Fix dark-mode dropdown invisibility */
+select option, select optgroup{background:var(--surface-solid);color:var(--text)}
+.input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,211,238,0.22)}
+label.small{font-size:.78rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:4px}
+header.app-header{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:14px 18px;margin-bottom:16px;flex-wrap:wrap;
+}
+header .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:var(--fs-h2);min-width:0}
+header .brand > div{min-width:0;overflow:hidden}
+header .brand > div > div:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .brand i{color:var(--accent);font-size:1.4em}
+header.app-header > .row{flex-wrap:wrap;justify-content:flex-end}
+@media(min-width:1100px){
+  header.app-header{display:grid;grid-template-columns:1.5fr 1fr;column-gap:16px;align-items:center}
+  header.app-header > .brand{grid-column:1}
+  header.app-header > .row{grid-column:2;justify-content:flex-end;width:100%}
+}
+.subtle{color:var(--text-dim);font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60vw}
+.grid-dashboard{display:block}
+/* Tabbed views */
+.view{display:none}
+.view.active{display:block}
+/* Nav tabs */
+.nav-tabs{display:flex;gap:8px;padding:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;justify-content:center}
+.nav-tab{display:inline-flex;align-items:center;gap:8px;padding:12px 20px;min-height:var(--hit);border-radius:14px;border:1px solid var(--glass-border);background:var(--glass-bg);color:var(--text);font-weight:600;font-size:.95rem;cursor:pointer;transition:all .2s ease;font-family:inherit;flex:1 1 auto;justify-content:center;min-width:140px}
+.nav-tab:hover{transform:translateY(-1px);border-color:var(--accent);color:var(--accent)}
+.nav-tab.active{background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;border-color:transparent;box-shadow:0 6px 20px rgba(34,211,238,.30)}
+.nav-tab i{font-size:1.05em}
+@media(max-width:600px){.nav-tab{flex:1 1 100%}}
+/* Charts grid - side-by-side on desktop, stacked on mobile */
+.charts-grid{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:1024px){.charts-grid{grid-template-columns:1fr 1fr}}
+.charts-grid .chart-card .chart-wrap{height:420px}
+@media(max-width:768px){.charts-grid .chart-card .chart-wrap{height:320px}}
+/* Reports view */
+.report-section{padding:18px;margin-bottom:16px}
+.report-section h3{margin:0 0 12px;font-size:var(--fs-h2);display:flex;align-items:center;gap:10px}
+.report-section h3 i{color:var(--accent)}
+.report-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.report-metric{padding:14px;border-radius:12px;background:var(--glass-bg-strong);border:1px solid var(--glass-border)}
+.report-metric .lbl{font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.report-metric .val{font-size:clamp(18px,2vw,24px);font-weight:700;color:var(--accent)}
+.report-metric .sub{font-size:.8rem;color:var(--text-dim);margin-top:4px}
+.report-narrative{font-size:.98rem;line-height:1.65;color:var(--text)}
+.report-narrative strong{color:var(--accent)}
+.allocation-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--glass-border)}
+.allocation-row:last-child{border-bottom:none}
+.allocation-row .name{flex:0 0 30%;min-width:120px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.allocation-row .bar{flex:1;height:14px;border-radius:999px;background:rgba(255,255,255,0.10);overflow:hidden;position:relative}
+.allocation-row .bar > span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .5s}
+.allocation-row .pct{flex:0 0 80px;text-align:right;font-weight:700;color:var(--accent)}
+.allocation-row .amt{flex:0 0 110px;text-align:right;color:var(--text-dim);font-size:.85rem}
+@media(max-width:640px){.allocation-row .amt{display:none}.allocation-row .name{flex:0 0 40%}}
+.anomaly-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:10px;background:rgba(251,191,36,.10);border-left:4px solid var(--warn);margin-bottom:8px;gap:10px;flex-wrap:wrap}
+.anomaly-item.danger{background:rgba(255,107,129,.10);border-left-color:var(--danger)}
+.anomaly-item .desc{flex:1;min-width:160px}
+.anomaly-item .desc .t{font-weight:600}
+.anomaly-item .desc .s{font-size:.8rem;color:var(--text-dim)}
+.anomaly-item .amt{font-weight:700;color:var(--warn)}
+.anomaly-item.danger .amt{color:var(--danger)}
+.advice-list{display:flex;flex-direction:column;gap:10px}
+.advice-item{display:flex;gap:12px;padding:12px;border-radius:10px;background:var(--glass-bg-strong);border:1px solid var(--glass-border)}
+.advice-item i{color:var(--accent);font-size:1.2em;margin-top:2px}
+.advice-item .body{flex:1}
+.advice-item .body .t{font-weight:600;margin-bottom:4px}
+.advice-item .body .d{font-size:.88rem;color:var(--text-dim);line-height:1.5}
+.report-empty{text-align:center;padding:40px 20px;color:var(--text-dim)}
+.report-empty i{font-size:3em;opacity:.4;margin-bottom:12px;display:block}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px}
+@media(max-width:980px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.stats{grid-template-columns:1fr;gap:10px}}
+.stat{padding:16px;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden}
+.stat .lbl{font-size:.78rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em}
+.stat .val{font-size:clamp(20px,2.4vw,28px);font-weight:700}
+.stat i.bg-ic{position:absolute;right:14px;top:14px;font-size:34px;opacity:.18;color:var(--accent)}
+.progress{height:10px;border-radius:999px;background:rgba(255,255,255,0.12);overflow:hidden;margin-top:6px}
+.progress > span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-2));transition:width .4s}
+.progress.warn > span{background:linear-gradient(90deg,#facc15,#f59e0b)}
+.progress.danger > span{background:linear-gradient(90deg,#ef4444,#ff6b81)}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;padding:14px;margin-bottom:14px;align-items:center}
+.toolbar .input{flex:1;min-width:180px}
+.table-wrap{border-radius:var(--radius)}
+table.expenses{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed}
+.expenses th, .expenses td{padding:10px 8px;text-align:left;border-bottom:1px solid var(--glass-border);font-size:.92rem;vertical-align:middle;word-break:break-word}
+.expenses th{font-weight:600;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em;font-size:.7rem;background:transparent}
+.expenses td .input, .expenses td select{padding:8px 10px;min-height:40px;font-size:.9rem;width:100%}
+.expenses td.amount{font-weight:700;color:var(--accent)}
+.del-btn{background:transparent;border:1px solid var(--glass-border);color:var(--danger);min-width:var(--hit);min-height:var(--hit);border-radius:12px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.del-btn:hover{background:rgba(239,68,68,0.12)}
+.total-bar{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;margin-top:14px;font-weight:700;font-size:var(--fs-h2);flex-wrap:wrap;gap:10px}
+.total-bar .num{color:var(--accent);font-size:clamp(20px,2.2vw,26px)}
+.chart-card{padding:16px;display:flex;flex-direction:column;gap:10px}
+.chart-card .chart-wrap{position:relative;height:300px}
+@media(max-width:768px){.chart-card .chart-wrap{height:240px}}
+.section-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.section-title h3{margin:0;font-size:var(--fs-h2)}
+.accordion-toggle{display:none}
+@media(max-width:820px){
+  header.app-header{flex-direction:column;align-items:stretch;padding:12px;gap:10px}
+  header.app-header .brand{justify-content:center;text-align:left}
+  header.app-header .row{justify-content:center;width:100%;gap:8px}
+  header.app-header .row .btn{flex:0 0 auto;padding:10px 12px;min-height:42px}
+  header.app-header #currency-sel{flex:1 1 auto;max-width:140px}
+  header.app-header #sector-tag{flex:1 1 100%;justify-content:center;max-width:100%}
+  .nav-tabs{padding:6px;gap:6px}
+  .nav-tab{padding:10px 12px;font-size:.85rem;min-width:0;min-height:42px}
+  .toolbar{padding:10px;gap:8px}
+  .toolbar .btn{flex:1 1 calc(50% - 4px);padding:10px;font-size:.85rem;min-height:42px}
+  .toolbar > div{flex:1 1 100%}
+  table.expenses{display:none}
+  .cards-mobile{display:flex;flex-direction:column;gap:10px}
+  .accordion .acc-body{display:none}
+  .accordion.open .acc-body{display:block}
+  .accordion-toggle{display:inline-flex}
+  .subtle{max-width:100%;white-space:normal}
+  .total-bar{padding:12px 14px;font-size:1rem}
+  .glass{border-radius:14px}
+  .grid-dashboard > .glass{padding:10px}
+  .section-title h3{font-size:1rem}
+  .report-section{padding:14px}
+  .report-grid{grid-template-columns:1fr 1fr;gap:10px}
+  .report-metric{padding:12px}
+}
+@media(max-width:480px){
+  :root{--hit:44px;--radius:14px;--pad:10px}
+  .container{padding:10px}
+  .btn{padding:10px 12px;font-size:.85rem;min-height:42px;border-radius:12px;gap:6px}
+  .toolbar .btn{flex:1 1 100%}
+  .stat{padding:14px}
+  .stat .val{font-size:1.4rem}
+  .stat i.bg-ic{font-size:26px;right:10px;top:10px}
+  header.app-header{padding:10px;margin-bottom:12px}
+  header.app-header .brand i{font-size:1.2em}
+  .modal-card{padding:18px;border-radius:16px}
+  .nav-tab{padding:9px 8px;font-size:.78rem;min-height:40px;gap:5px}
+  .report-grid{grid-template-columns:1fr}
+  .report-section h3{font-size:.95rem}
+  .total-bar{font-size:.92rem;padding:10px 12px}
+  .total-bar .num{font-size:1.1rem}
+  .card-row{padding:12px}
+  .tag{font-size:.7rem;padding:4px 10px}
+  .allocation-row .name{font-size:.85rem;flex:0 0 45%}
+  .allocation-row .pct{flex:0 0 60px;font-size:.85rem}
+}
+.cards-mobile{display:none}
+.card-row{padding:14px;display:flex;flex-direction:column;gap:10px}
+.card-row .field{display:flex;flex-direction:column;gap:4px}
+.card-row .field label{font-size:.7rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.05em}
+.card-row .row-actions{display:flex;justify-content:flex-end}
+
+/* Overlays (onboarding + custom modal) */
+.overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;z-index:50;background:radial-gradient(circle at 30% 20%,rgba(124,156,255,0.25),transparent 60%),var(--bg-grad);overflow-y:auto}
+.modal-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;z-index:9999;background:rgba(5,10,25,0.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);animation:fadein .18s ease}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+@keyframes pop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-card{width:100%;max-width:480px;padding:22px;display:flex;flex-direction:column;gap:14px;animation:pop .2s ease}
+.modal-card{border-radius:20px;border:1px solid var(--glass-border);background:var(--glass-bg-strong);box-shadow:0 20px 60px rgba(0,0,0,0.45)}
+.modal-card h3{margin:0;font-size:var(--fs-h2);display:flex;align-items:center;gap:10px;padding-bottom:8px;border-bottom:1px solid var(--glass-border)}
+.modal-card h3 i{color:var(--accent)}
+.modal-card.danger h3 i{color:var(--danger)}
+.modal-card.warn h3 i{color:var(--warn)}
+.modal-card.success h3 i{color:var(--ok)}
+.modal-card .modal-body{font-size:.95rem;line-height:1.5}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.modal-actions .btn{min-width:96px}
+@media(max-width:480px){.modal-actions{flex-direction:column-reverse}.modal-actions .btn{width:100%}}
+
+.onboard-card{width:100%;max-width:560px;padding:26px;display:flex;flex-direction:column;gap:14px}
+.onboard-card h1{font-size:var(--fs-h1);margin:0}
+.onboard-card .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:620px){.onboard-card .grid2{grid-template-columns:1fr}}
+.brand-mark{display:flex;align-items:center;gap:10px;color:var(--accent);font-weight:700}
+
+.profile-chips{display:flex;flex-wrap:wrap;gap:8px}
+.profile-chip{padding:10px 14px;border-radius:999px;background:var(--glass-bg-strong);border:1px solid var(--glass-border);cursor:pointer;font-size:.85rem;display:inline-flex;gap:8px;align-items:center;color:var(--text)}
+.profile-chip:hover{border-color:var(--accent)}
+.profile-chip .x{opacity:.6;padding:2px 4px;border-radius:6px}
+.profile-chip .x:hover{opacity:1;background:rgba(255,107,129,.2);color:var(--danger)}
+
+.hidden{display:none !important}
+.tag{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:var(--glass-bg-strong);border:1px solid var(--glass-border);font-size:.75rem;color:var(--text-dim);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ---- Nav labels (icon-only on mobile) ---- */
+.nav-tab .nav-label{display:inline}
+@media(max-width:720px){
+  .nav-tabs{flex-wrap:nowrap;overflow-x:auto;justify-content:flex-start;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .nav-tabs::-webkit-scrollbar{display:none}
+  .nav-tab{flex:1 1 0;min-width:0;padding:10px 6px;gap:0;font-size:1.05rem}
+  .nav-tab .nav-label{display:none}
+  .nav-tab i{font-size:1.25em}
+}
+/* ---- Support / Donate page ---- */
+.support-hero{padding:26px;display:flex;flex-direction:column;gap:10px;background:
+  radial-gradient(circle at 90% 10%,rgba(124,156,255,0.20),transparent 55%),
+  radial-gradient(circle at 10% 90%,rgba(34,211,238,0.18),transparent 55%),
+  var(--glass-bg-strong);
+  border:1px solid var(--glass-border);border-radius:var(--radius);position:relative;overflow:hidden}
+.support-hero h2{margin:0;font-size:clamp(22px,2.6vw,32px);font-weight:800;letter-spacing:-0.01em}
+.support-hero p{margin:0;color:var(--text-dim);max-width:760px;line-height:1.6}
+.support-hero .heart-badge{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;padding:6px 12px;border-radius:999px;background:rgba(255,107,129,.15);border:1px solid rgba(255,107,129,.3);color:#ff8fa3;font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.08em}
+.crypto-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;margin-top:16px}
+.crypto-asset{padding:18px;border-radius:16px;border:1px solid var(--glass-border);background:var(--glass-bg-strong);
+  display:flex;flex-direction:column;gap:12px;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease;position:relative;overflow:hidden}
+.crypto-asset::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(34,211,238,0.06),transparent 60%);pointer-events:none;opacity:0;transition:opacity .25s}
+.crypto-asset:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 12px 32px rgba(34,211,238,.18)}
+.crypto-asset:hover::before{opacity:1}
+.crypto-asset .meta{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.crypto-asset .name{display:inline-flex;align-items:center;gap:10px;font-weight:700;font-size:1.05rem}
+.crypto-asset .ico{width:30px;height:30px;flex:0 0 30px}
+.crypto-asset .net{font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;padding:4px 10px;border-radius:999px;background:var(--glass-bg);border:1px solid var(--glass-border)}
+.crypto-addr{display:flex;align-items:stretch;gap:8px;background:rgba(0,0,0,.18);border:1px dashed var(--glass-border);border-radius:12px;padding:10px;position:relative;z-index:1}
+body.light .crypto-addr{background:rgba(15,23,42,.04)}
+.crypto-addr code{flex:1;font-family:'JetBrains Mono','SF Mono',ui-monospace,Menlo,monospace;font-size:.78rem;color:var(--text);word-break:break-all;line-height:1.4;display:flex;align-items:center}
+.copy-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;border:none;cursor:pointer;font-weight:600;font-size:.8rem;font-family:inherit;flex:0 0 auto;align-self:center;transition:transform .15s;white-space:nowrap}
+.copy-btn:hover{transform:translateY(-1px)}
+.copy-btn svg{width:14px;height:14px}
+.copy-btn.copied{background:linear-gradient(135deg,var(--ok),#10b981)}
+.support-note{margin-top:14px;padding:14px 16px;border-radius:12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);color:var(--text-dim);font-size:.88rem;line-height:1.55;display:flex;gap:10px;align-items:flex-start}
+.support-note i{color:var(--warn);margin-top:2px}
+/* Subtle React-ish polish */
+.glass{transition:border-color .2s ease}
+.stat{transition:transform .2s ease}
+.stat:hover{transform:translateY(-2px)}
+.theme-toggle{cursor:pointer}
+.hidden-file{display:none}
+
+body:not(.light) .stat::after{content:'';position:absolute;left:-20%;bottom:-60%;width:160%;height:120%;background:radial-gradient(circle,rgba(34,211,238,0.15),transparent 60%);pointer-events:none}
+body:not(.light) .btn{box-shadow:0 0 0 1px rgba(34,211,238,0.25), 0 8px 24px rgba(34,211,238,0.25)}
+
+input[type=file].hidden-file{display:none}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:12px 18px;border-radius:12px;background:rgba(0,0,0,0.75);color:#fff;z-index:9998;backdrop-filter:blur(8px);font-size:.9rem;transition:opacity .25s;pointer-events:none}
+</style>
+</head>
+<body>
+
+<div class='overlay' id='onboarding'>
+  <div class='glass onboard-card'>
+    <div class='brand-mark'><i class='fa-solid fa-wallet'></i> Expense Tracker &amp; Database</div>
+    <h1>Welcome &#8212; let&#39;s set up your workspace</h1>
+    <p class='subtle' style='max-width:100%;white-space:normal'>Your data stays on this device. Pick a saved profile to restore, or create a new one.</p>
+
+    <div class='hidden' id='profile-restore'>
+      <label class='small'>Restore a previous workspace</label>
+      <div class='profile-chips' id='profile-chips'></div>
+    </div>
+
+    <div class='grid2'>
+      <div>
+        <label class='small'>Your Name</label>
+        <input autocomplete='name' class='input' id='ob-name' list='dl-names' placeholder='Omotoso Omotayo Olawande'/>
+
+        <datalist id='dl-names'></datalist>
+      </div>
+      <div>
+        <label class='small'>Company Name</label>
+        <input autocomplete='organization' class='input' id='ob-company' list='dl-companies' placeholder='AzuraNook Limited'/>
+        <datalist id='dl-companies'></datalist>
+      </div>
+      <div>
+        <label class='small'>Your Role / Position</label>
+        <input autocomplete='organization-title' class='input' id='ob-role' list='dl-roles' placeholder='Accountant'/>
+        <datalist id='dl-roles'></datalist>
+      </div>
+      <div>
+        <label class='small'>Sector / Company Type</label>
+        <select class='input' id='ob-sector'>
+          <option value=''>Choose sector&#8230;</option>
+          <option value='construction'>Construction &amp; Civil Engineering</option>
+          <option value='realestate'>Real Estate &amp; Property Management</option>
+          <option value='agriculture'>Agriculture &amp; Farming</option>
+          <option value='retail'>Retail &amp; E-commerce</option>
+          <option value='manufacturing'>Manufacturing &amp; Factory</option>
+          <option value='logistics'>Logistics &amp; Transport</option>
+          <option value='it'>IT &amp; Professional Services</option>
+          <option value='hospitality'>Hospitality &amp; Catering</option>
+          <option value='general'>General / Other</option>
+        </select>
+      </div>
+      <div>
+        <label class='small'>Currency</label>
+<select class='input' id='ob-currency'>
+           <option value='AFN'>Afghanistan &#8212; AFN (&#1547;)</option>
+           <option value='ALL'>Albania &#8212; ALL (L)</option>
+           <option value='DZD'>Algeria &#8212; DZD (د.ج)</option>
+           <option value='EUR'>Andorra &#8212; EUR (&#8364;)</option>
+           <option value='AOA'>Angola &#8212; AOA (Kz)</option>
+           <option value='ARS'>Argentina &#8212; ARS ($)</option>
+           <option value='AMD'>Armenia &#8212; AMD (&#1423;)</option>
+           <option value='AWG'>Aruba &#8212; AWG (ƒ)</option>
+           <option value='AUD'>Australia &#8212; AUD (A$)</option>
+           <option value='EUR'>Austria &#8212; EUR (&#8364;)</option>
+           <option value='AZN'>Azerbaijan &#8212; AZN (&#8380;)</option>
+           <option value='BSD'>Bahamas &#8212; BSD (B$)</option>
+           <option value='BHD'>Bahrain &#8212; BHD (ب.د)</option>
+           <option value='BDT'>Bangladesh &#8212; BDT (&#2547;)</option>
+           <option value='BBD'>Barbados &#8212; BBD (Bds$)</option>
+           <option value='BYN'>Belarus &#8212; BYN (Br)</option>
+           <option value='EUR'>Belgium &#8212; EUR (&#8364;)</option>
+           <option value='BZD'>Belize &#8212; BZD (BZ$)</option>
+           <option value='XOF'>Benin &#8212; XOF (CFA)</option>
+           <option value='BMD'>Bermuda &#8212; BMD (BD$)</option>
+           <option value='BTN'>Bhutan &#8212; BTN (Nu.)</option>
+           <option value='BOB'>Bolivia &#8212; BOB (Bs.)</option>
+           <option value='BAM'>Bosnia and Herzegovina &#8212; BAM (KM)</option>
+           <option value='BWP'>Botswana &#8212; BWP (P)</option>
+           <option value='BRL'>Brazil &#8212; BRL (R$)</option>
+           <option value='BND'>Brunei &#8212; BND (B$)</option>
+           <option value='BGN'>Bulgaria &#8212; BGN (лв)</option>
+           <option value='XOF'>Burkina Faso &#8212; XOF (CFA)</option>
+           <option value='BIF'>Burundi &#8212; BIF (FBu)</option>
+           <option value='KHR'>Cambodia &#8212; KHR (&#6107;)</option>
+           <option value='XAF'>Cameroon &#8212; XAF (FCFA)</option>
+           <option value='CAD'>Canada &#8212; CAD (C$)</option>
+           <option value='CVE'>Cape Verde &#8212; CVE (Esc)</option>
+           <option value='KYD'>Cayman Islands &#8212; KYD (CI$)</option>
+           <option value='XAF'>Central African Republic &#8212; XAF (FCFA)</option>
+           <option value='XAF'>Chad &#8212; XAF (FCFA)</option>
+           <option value='CLP'>Chile &#8212; CLP (CLP$)</option>
+           <option value='CNY'>China &#8212; CNY (&#165;)</option>
+           <option value='COP'>Colombia &#8212; COP (COL$)</option>
+           <option value='KMF'>Comoros &#8212; KMF (CF)</option>
+           <option value='XAF'>Congo (Brazzaville) &#8212; XAF (FCFA)</option>
+           <option value='CDF'>Congo (Kinshasa) &#8212; CDF (FC)</option>
+           <option value='CRC'>Costa Rica &#8212; CRC (&#8353;)</option>
+           <option value='EUR'>Croatia &#8212; EUR (&#8364;)</option>
+           <option value='CUP'>Cuba &#8212; CUP (&#8369;)</option>
+           <option value='EUR'>Cyprus &#8212; EUR (&#8364;)</option>
+           <option value='CZK'>Czech Republic &#8212; CZK (Kč)</option>
+           <option value='XOF'>Côte d&#39;Ivoire &#8212; XOF (CFA)</option>
+           <option value='DKK'>Denmark &#8212; DKK (kr)</option>
+           <option value='DJF'>Djibouti &#8212; DJF (Fdj)</option>
+           <option value='DOP'>Dominican Republic &#8212; DOP (RD$)</option>
+           <option value='USD'>Ecuador &#8212; USD ($)</option>
+           <option value='EGP'>Egypt &#8212; EGP (E&#163;)</option>
+           <option value='USD'>El Salvador &#8212; USD ($)</option>
+           <option value='XAF'>Equatorial Guinea &#8212; XAF (FCFA)</option>
+           <option value='ERN'>Eritrea &#8212; ERN (Nfk)</option>
+           <option value='EUR'>Estonia &#8212; EUR (&#8364;)</option>
+           <option value='SZL'>Eswatini &#8212; SZL (E)</option>
+           <option value='ETB'>Ethiopia &#8212; ETB (Br)</option>
+           <option value='FJD'>Fiji &#8212; FJD (FJ$)</option>
+           <option value='EUR'>Finland &#8212; EUR (&#8364;)</option>
+           <option value='EUR'>France &#8212; EUR (&#8364;)</option>
+           <option value='XAF'>Gabon &#8212; XAF (FCFA)</option>
+           <option value='GMD'>Gambia &#8212; GMD (D)</option>
+           <option value='GEL'>Georgia &#8212; GEL (&#8382;)</option>
+           <option value='EUR'>Germany &#8212; EUR (&#8364;)</option>
+           <option value='GHS'>Ghana &#8212; GHS (&#8373;)</option>
+           <option value='GIP'>Gibraltar &#8212; GIP (&#163;)</option>
+           <option value='EUR'>Greece &#8212; EUR (&#8364;)</option>
+           <option value='GTQ'>Guatemala &#8212; GTQ (Q)</option>
+           <option value='GNF'>Guinea &#8212; GNF (FG)</option>
+           <option value='GYD'>Guyana &#8212; GYD (G$)</option>
+           <option value='HTG'>Haiti &#8212; HTG (G)</option>
+           <option value='HNL'>Honduras &#8212; HNL (L)</option>
+           <option value='HKD'>Hong Kong &#8212; HKD (HK$)</option>
+           <option value='HUF'>Hungary &#8212; HUF (Ft)</option>
+           <option value='ISK'>Iceland &#8212; ISK (kr)</option>
+           <option value='INR'>India &#8212; INR (&#8377;)</option>
+           <option value='IDR'>Indonesia &#8212; IDR (Rp)</option>
+           <option value='IRR'>Iran &#8212; IRR (&#65020;)</option>
+           <option value='IQD'>Iraq &#8212; IQD (ع.د)</option>
+           <option value='EUR'>Ireland &#8212; EUR (&#8364;)</option>
+           <option value='ILS'>Israel &#8212; ILS (&#8362;)</option>
+           <option value='EUR'>Italy &#8212; EUR (&#8364;)</option>
+           <option value='JMD'>Jamaica &#8212; JMD (J$)</option>
+           <option value='JPY'>Japan &#8212; JPY (&#165;)</option>
+           <option value='JOD'>Jordan &#8212; JOD (د.ا)</option>
+           <option value='KZT'>Kazakhstan &#8212; KZT (&#8376;)</option>
+           <option value='KES'>Kenya &#8212; KES (KSh)</option>
+           <option value='KWD'>Kuwait &#8212; KWD (د.ك)</option>
+           <option value='KGS'>Kyrgyzstan &#8212; KGS (с)</option>
+           <option value='LAK'>Laos &#8212; LAK (&#8365;)</option>
+           <option value='EUR'>Latvia &#8212; EUR (&#8364;)</option>
+           <option value='LBP'>Lebanon &#8212; LBP (ل.ل)</option>
+           <option value='LSL'>Lesotho &#8212; LSL (L)</option>
+           <option value='LRD'>Liberia &#8212; LRD (L$)</option>
+           <option value='LYD'>Libya &#8212; LYD (ل.د)</option>
+           <option value='CHF'>Liechtenstein &#8212; CHF (CHF)</option>
+           <option value='EUR'>Lithuania &#8212; EUR (&#8364;)</option>
+           <option value='EUR'>Luxembourg &#8212; EUR (&#8364;)</option>
+           <option value='MOP'>Macau &#8212; MOP (MOP$)</option>
+           <option value='MGA'>Madagascar &#8212; MGA (Ar)</option>
+           <option value='MWK'>Malawi &#8212; MWK (MK)</option>
+           <option value='MYR'>Malaysia &#8212; MYR (RM)</option>
+           <option value='MVR'>Maldives &#8212; MVR (Rf)</option>
+           <option value='XOF'>Mali &#8212; XOF (CFA)</option>
+           <option value='EUR'>Malta &#8212; EUR (&#8364;)</option>
+           <option value='MRU'>Mauritania &#8212; MRU (UM)</option>
+           <option value='MUR'>Mauritius &#8212; MUR (&#8360;)</option>
+           <option value='MXN'>Mexico &#8212; MXN (Mex$)</option>
+           <option value='MDL'>Moldova &#8212; MDL (L)</option>
+           <option value='EUR'>Monaco &#8212; EUR (&#8364;)</option>
+           <option value='MNT'>Mongolia &#8212; MNT (&#8366;)</option>
+           <option value='EUR'>Montenegro &#8212; EUR (&#8364;)</option>
+           <option value='MAD'>Morocco &#8212; MAD (د.م.)</option>
+           <option value='MZN'>Mozambique &#8212; MZN (MT)</option>
+           <option value='MMK'>Myanmar &#8212; MMK (K)</option>
+           <option value='NAD'>Namibia &#8212; NAD (N$)</option>
+           <option value='NPR'>Nepal &#8212; NPR (&#8360;)</option>
+           <option value='EUR'>Netherlands &#8212; EUR (&#8364;)</option>
+           <option value='NZD'>New Zealand &#8212; NZD (NZ$)</option>
+           <option value='NIO'>Nicaragua &#8212; NIO (C$)</option>
+           <option value='XOF'>Niger &#8212; XOF (CFA)</option>
+           <option value='NGN'>Nigeria &#8212; NGN (&#8358;)</option>
+           <option value='KPW'>North Korea &#8212; KPW (&#8361;)</option>
+           <option value='MKD'>North Macedonia &#8212; MKD (ден)</option>
+           <option value='NOK'>Norway &#8212; NOK (kr)</option>
+           <option value='OMR'>Oman &#8212; OMR (ر.ع.)</option>
+           <option value='PKR'>Pakistan &#8212; PKR (&#8360;)</option>
+           <option value='PAB'>Panama &#8212; PAB (B/.)</option>
+           <option value='PGK'>Papua New Guinea &#8212; PGK (K)</option>
+           <option value='PYG'>Paraguay &#8212; PYG (&#8370;)</option>
+           <option value='PEN'>Peru &#8212; PEN (S/.)</option>
+           <option value='PHP'>Philippines &#8212; PHP (&#8369;)</option>
+           <option value='PLN'>Poland &#8212; PLN (zł)</option>
+           <option value='EUR'>Portugal &#8212; EUR (&#8364;)</option>
+           <option value='QAR'>Qatar &#8212; QAR (ر.ق)</option>
+           <option value='RON'>Romania &#8212; RON (lei)</option>
+           <option value='RUB'>Russia &#8212; RUB (&#8381;)</option>
+           <option value='RWF'>Rwanda &#8212; RWF (FRw)</option>
+           <option value='WST'>Samoa &#8212; WST (WS$)</option>
+           <option value='EUR'>San Marino &#8212; EUR (&#8364;)</option>
+           <option value='SAR'>Saudi Arabia &#8212; SAR (ر.س)</option>
+           <option value='XOF'>Senegal &#8212; XOF (CFA)</option>
+           <option value='RSD'>Serbia &#8212; RSD (дин.)</option>
+           <option value='SCR'>Seychelles &#8212; SCR (&#8360;)</option>
+           <option value='SLE'>Sierra Leone &#8212; SLE (Le)</option>
+           <option value='SGD'>Singapore &#8212; SGD (S$)</option>
+           <option value='EUR'>Slovakia &#8212; EUR (&#8364;)</option>
+           <option value='EUR'>Slovenia &#8212; EUR (&#8364;)</option>
+           <option value='SBD'>Solomon Islands &#8212; SBD (SI$)</option>
+           <option value='SOS'>Somalia &#8212; SOS (S)</option>
+           <option value='ZAR'>South Africa &#8212; ZAR (R)</option>
+           <option value='KRW'>South Korea &#8212; KRW (&#8361;)</option>
+           <option value='SSP'>South Sudan &#8212; SSP (&#163;)</option>
+           <option value='EUR'>Spain &#8212; EUR (&#8364;)</option>
+           <option value='LKR'>Sri Lanka &#8212; LKR (Rs)</option>
+           <option value='SDG'>Sudan &#8212; SDG (ج.س.)</option>
+           <option value='SRD'>Suriname &#8212; SRD (Sr$)</option>
+           <option value='SEK'>Sweden &#8212; SEK (kr)</option>
+           <option value='CHF'>Switzerland &#8212; CHF (CHF)</option>
+           <option value='SYP'>Syria &#8212; SYP (&#163;S)</option>
+           <option value='TWD'>Taiwan &#8212; TWD (NT$)</option>
+           <option value='TJS'>Tajikistan &#8212; TJS (ЅМ)</option>
+           <option value='TZS'>Tanzania &#8212; TZS (TSh)</option>
+           <option value='THB'>Thailand &#8212; THB (&#3647;)</option>
+           <option value='XOF'>Togo &#8212; XOF (CFA)</option>
+           <option value='TOP'>Tonga &#8212; TOP (T$)</option>
+           <option value='TTD'>Trinidad and Tobago &#8212; TTD (TT$)</option>
+           <option value='TND'>Tunisia &#8212; TND (د.ت)</option>
+           <option value='TRY'>Turkey &#8212; TRY (&#8378;)</option>
+           <option value='TMT'>Turkmenistan &#8212; TMT (m)</option>
+           <option value='UGX'>Uganda &#8212; UGX (USh)</option>
+           <option value='UAH'>Ukraine &#8212; UAH (&#8372;)</option>
+           <option value='AED'>United Arab Emirates &#8212; AED (د.إ)</option>
+           <option value='GBP'>United Kingdom &#8212; GBP (&#163;)</option>
+           <option value='USD'>United States &#8212; USD ($)</option>
+           <option value='UYU'>Uruguay &#8212; UYU ($U)</option>
+           <option value='UZS'>Uzbekistan &#8212; UZS (сўм)</option>
+           <option value='VUV'>Vanuatu &#8212; VUV (VT)</option>
+           <option value='VES'>Venezuela &#8212; VES (Bs.S)</option>
+           <option value='VND'>Vietnam &#8212; VND (&#8363;)</option>
+           <option value='YER'>Yemen &#8212; YER (&#65020;)</option>
+           <option value='ZMW'>Zambia &#8212; ZMW (ZK)</option>
+           <option value='ZWL'>Zimbabwe &#8212; ZWL (Z$)</option>
+         </select>
+      </div>
+    </div>
+    <div class='row'>
+      <span class='spacer'></span>
+      <button class='btn' id='ob-start'><i class='fa-solid fa-rocket'></i> Launch Dashboard</button>
+    </div>
+  </div>
+</div>
+
+<div class='container hidden' id='app'>
+  <header class='app-header glass'>
+    <div class='brand'>
+      <i class='fa-solid fa-wallet'></i>
+      <div>
+        <div>Expense Tracker</div>
+        <div class='subtle' id='brand-sub'>&#8212;</div>
+      </div>
+    </div>
+    <div class='row'>
+      <span class='tag' id='sector-tag'><i class='fa-solid fa-briefcase'></i> <span>Sector</span></span>
+      <select class='input' id='currency-sel' style='max-width:220px;min-height:40px;padding:6px 30px 6px 10px' title='Change currency'>
+           <option value='AFN'>Afghanistan (AFN)</option>
+           <option value='ALL'>Albania (ALL)</option>
+           <option value='DZD'>Algeria (DZD)</option>
+           <option value='EUR'>Andorra (EUR)</option>
+           <option value='AOA'>Angola (AOA)</option>
+           <option value='ARS'>Argentina (ARS)</option>
+           <option value='AMD'>Armenia (AMD)</option>
+           <option value='AWG'>Aruba (AWG)</option>
+           <option value='AUD'>Australia (AUD)</option>
+           <option value='EUR'>Austria (EUR)</option>
+           <option value='AZN'>Azerbaijan (AZN)</option>
+           <option value='BSD'>Bahamas (BSD)</option>
+           <option value='BHD'>Bahrain (BHD)</option>
+           <option value='BDT'>Bangladesh (BDT)</option>
+           <option value='BBD'>Barbados (BBD)</option>
+           <option value='BYN'>Belarus (BYN)</option>
+           <option value='EUR'>Belgium (EUR)</option>
+           <option value='BZD'>Belize (BZD)</option>
+           <option value='XOF'>Benin (XOF)</option>
+           <option value='BMD'>Bermuda (BMD)</option>
+           <option value='BTN'>Bhutan (BTN)</option>
+           <option value='BOB'>Bolivia (BOB)</option>
+           <option value='BAM'>Bosnia and Herzegovina (BAM)</option>
+           <option value='BWP'>Botswana (BWP)</option>
+           <option value='BRL'>Brazil (BRL)</option>
+           <option value='BND'>Brunei (BND)</option>
+           <option value='BGN'>Bulgaria (BGN)</option>
+           <option value='XOF'>Burkina Faso (XOF)</option>
+           <option value='BIF'>Burundi (BIF)</option>
+           <option value='KHR'>Cambodia (KHR)</option>
+           <option value='XAF'>Cameroon (XAF)</option>
+           <option value='CAD'>Canada (CAD)</option>
+           <option value='CVE'>Cape Verde (CVE)</option>
+           <option value='KYD'>Cayman Islands (KYD)</option>
+           <option value='XAF'>Central African Republic (XAF)</option>
+           <option value='XAF'>Chad (XAF)</option>
+           <option value='CLP'>Chile (CLP)</option>
+           <option value='CNY'>China (CNY)</option>
+           <option value='COP'>Colombia (COP)</option>
+           <option value='KMF'>Comoros (KMF)</option>
+           <option value='XAF'>Congo (Brazzaville) (XAF)</option>
+           <option value='CDF'>Congo (Kinshasa) (CDF)</option>
+           <option value='CRC'>Costa Rica (CRC)</option>
+           <option value='EUR'>Croatia (EUR)</option>
+           <option value='CUP'>Cuba (CUP)</option>
+           <option value='EUR'>Cyprus (EUR)</option>
+           <option value='CZK'>Czech Republic (CZK)</option>
+           <option value='XOF'>Côte d&#39;Ivoire (XOF)</option>
+           <option value='DKK'>Denmark (DKK)</option>
+           <option value='DJF'>Djibouti (DJF)</option>
+           <option value='DOP'>Dominican Republic (DOP)</option>
+           <option value='USD'>Ecuador (USD)</option>
+           <option value='EGP'>Egypt (EGP)</option>
+           <option value='USD'>El Salvador (USD)</option>
+           <option value='XAF'>Equatorial Guinea (XAF)</option>
+           <option value='ERN'>Eritrea (ERN)</option>
+           <option value='EUR'>Estonia (EUR)</option>
+           <option value='SZL'>Eswatini (SZL)</option>
+           <option value='ETB'>Ethiopia (ETB)</option>
+           <option value='FJD'>Fiji (FJD)</option>
+           <option value='EUR'>Finland (EUR)</option>
+           <option value='EUR'>France (EUR)</option>
+           <option value='XAF'>Gabon (XAF)</option>
+           <option value='GMD'>Gambia (GMD)</option>
+           <option value='GEL'>Georgia (GEL)</option>
+           <option value='EUR'>Germany (EUR)</option>
+           <option value='GHS'>Ghana (GHS)</option>
+           <option value='GIP'>Gibraltar (GIP)</option>
+           <option value='EUR'>Greece (EUR)</option>
+           <option value='GTQ'>Guatemala (GTQ)</option>
+           <option value='GNF'>Guinea (GNF)</option>
+           <option value='GYD'>Guyana (GYD)</option>
+           <option value='HTG'>Haiti (HTG)</option>
+           <option value='HNL'>Honduras (HNL)</option>
+           <option value='HKD'>Hong Kong (HKD)</option>
+           <option value='HUF'>Hungary (HUF)</option>
+           <option value='ISK'>Iceland (ISK)</option>
+           <option value='INR'>India (INR)</option>
+           <option value='IDR'>Indonesia (IDR)</option>
+           <option value='IRR'>Iran (IRR)</option>
+           <option value='IQD'>Iraq (IQD)</option>
+           <option value='EUR'>Ireland (EUR)</option>
+           <option value='ILS'>Israel (ILS)</option>
+           <option value='EUR'>Italy (EUR)</option>
+           <option value='JMD'>Jamaica (JMD)</option>
+           <option value='JPY'>Japan (JPY)</option>
+           <option value='JOD'>Jordan (JOD)</option>
+           <option value='KZT'>Kazakhstan (KZT)</option>
+           <option value='KES'>Kenya (KES)</option>
+           <option value='KWD'>Kuwait (KWD)</option>
+           <option value='KGS'>Kyrgyzstan (KGS)</option>
+           <option value='LAK'>Laos (LAK)</option>
+           <option value='EUR'>Latvia (EUR)</option>
+           <option value='LBP'>Lebanon (LBP)</option>
+           <option value='LSL'>Lesotho (LSL)</option>
+           <option value='LRD'>Liberia (LRD)</option>
+           <option value='LYD'>Libya (LYD)</option>
+           <option value='CHF'>Liechtenstein (CHF)</option>
+           <option value='EUR'>Lithuania (EUR)</option>
+           <option value='EUR'>Luxembourg (EUR)</option>
+           <option value='MOP'>Macau (MOP)</option>
+           <option value='MGA'>Madagascar (MGA)</option>
+           <option value='MWK'>Malawi (MWK)</option>
+           <option value='MYR'>Malaysia (MYR)</option>
+           <option value='MVR'>Maldives (MVR)</option>
+           <option value='XOF'>Mali (XOF)</option>
+           <option value='EUR'>Malta (EUR)</option>
+           <option value='MRU'>Mauritania (MRU)</option>
+           <option value='MUR'>Mauritius (MUR)</option>
+           <option value='MXN'>Mexico (MXN)</option>
+           <option value='MDL'>Moldova (MDL)</option>
+           <option value='EUR'>Monaco (EUR)</option>
+           <option value='MNT'>Mongolia (MNT)</option>
+           <option value='EUR'>Montenegro (EUR)</option>
+           <option value='MAD'>Morocco (MAD)</option>
+           <option value='MZN'>Mozambique (MZN)</option>
+           <option value='MMK'>Myanmar (MMK)</option>
+           <option value='NAD'>Namibia (NAD)</option>
+           <option value='NPR'>Nepal (NPR)</option>
+           <option value='EUR'>Netherlands (EUR)</option>
+           <option value='NZD'>New Zealand (NZD)</option>
+           <option value='NIO'>Nicaragua (NIO)</option>
+           <option value='XOF'>Niger (XOF)</option>
+           <option value='NGN'>Nigeria (NGN)</option>
+           <option value='KPW'>North Korea (KPW)</option>
+           <option value='MKD'>North Macedonia (MKD)</option>
+           <option value='NOK'>Norway (NOK)</option>
+           <option value='OMR'>Oman (OMR)</option>
+           <option value='PKR'>Pakistan (PKR)</option>
+           <option value='PAB'>Panama (PAB)</option>
+           <option value='PGK'>Papua New Guinea (PGK)</option>
+           <option value='PYG'>Paraguay (PYG)</option>
+           <option value='PEN'>Peru (PEN)</option>
+           <option value='PHP'>Philippines (PHP)</option>
+           <option value='PLN'>Poland (PLN)</option>
+           <option value='EUR'>Portugal (EUR)</option>
+           <option value='QAR'>Qatar (QAR)</option>
+           <option value='RON'>Romania (RON)</option>
+           <option value='RUB'>Russia (RUB)</option>
+           <option value='RWF'>Rwanda (RWF)</option>
+           <option value='WST'>Samoa (WST)</option>
+           <option value='EUR'>San Marino (EUR)</option>
+           <option value='SAR'>Saudi Arabia (SAR)</option>
+           <option value='XOF'>Senegal (XOF)</option>
+           <option value='RSD'>Serbia (RSD)</option>
+           <option value='SCR'>Seychelles (SCR)</option>
+           <option value='SLE'>Sierra Leone (SLE)</option>
+           <option value='SGD'>Singapore (SGD)</option>
+           <option value='EUR'>Slovakia (EUR)</option>
+           <option value='EUR'>Slovenia (EUR)</option>
+           <option value='SBD'>Solomon Islands (SBD)</option>
+           <option value='SOS'>Somalia (SOS)</option>
+           <option value='ZAR'>South Africa (ZAR)</option>
+           <option value='KRW'>South Korea (KRW)</option>
+           <option value='SSP'>South Sudan (SSP)</option>
+           <option value='EUR'>Spain (EUR)</option>
+           <option value='LKR'>Sri Lanka (LKR)</option>
+           <option value='SDG'>Sudan (SDG)</option>
+           <option value='SRD'>Suriname (SRD)</option>
+           <option value='SEK'>Sweden (SEK)</option>
+           <option value='CHF'>Switzerland (CHF)</option>
+           <option value='SYP'>Syria (SYP)</option>
+           <option value='TWD'>Taiwan (TWD)</option>
+           <option value='TJS'>Tajikistan (TJS)</option>
+           <option value='TZS'>Tanzania (TZS)</option>
+           <option value='THB'>Thailand (THB)</option>
+           <option value='XOF'>Togo (XOF)</option>
+           <option value='TOP'>Tonga (TOP)</option>
+           <option value='TTD'>Trinidad and Tobago (TTD)</option>
+           <option value='TND'>Tunisia (TND)</option>
+           <option value='TRY'>Turkey (TRY)</option>
+           <option value='TMT'>Turkmenistan (TMT)</option>
+           <option value='UGX'>Uganda (UGX)</option>
+           <option value='UAH'>Ukraine (UAH)</option>
+           <option value='AED'>United Arab Emirates (AED)</option>
+           <option value='GBP'>United Kingdom (GBP)</option>
+           <option value='USD'>United States (USD)</option>
+           <option value='UYU'>Uruguay (UYU)</option>
+           <option value='UZS'>Uzbekistan (UZS)</option>
+           <option value='VUV'>Vanuatu (VUV)</option>
+           <option value='VES'>Venezuela (VES)</option>
+           <option value='VND'>Vietnam (VND)</option>
+           <option value='YER'>Yemen (YER)</option>
+           <option value='ZMW'>Zambia (ZMW)</option>
+           <option value='ZWL'>Zimbabwe (ZWL)</option>
+      </select>
+      <button class='btn ghost theme-toggle' id='theme-btn' title='Toggle theme'><i class='fa-solid fa-moon'></i></button>
+      <button class='btn ghost' id='reset-btn' title='Reset workspace'><i class='fa-solid fa-rotate-left'></i></button>
+    </div>
+  </header>
+
+  <nav class='nav-tabs glass'>
+    <button aria-label='Tracker' class='nav-tab active' data-view='tracker' id='tab-tracker' title='Tracker'><i class='fa-solid fa-table-list'></i> <span class='nav-label'>Tracker</span></button>
+    <button aria-label='Visual Analytics' class='nav-tab' data-view='charts' id='tab-charts' title='Visual Analytics'><i class='fa-solid fa-chart-pie'></i> <span class='nav-label'>Visual Analytics</span></button>
+    <button aria-label='Analytical Report' class='nav-tab' data-view='reports' id='tab-reports' title='Analytical Report'><i class='fa-solid fa-file-invoice-dollar'></i> <span class='nav-label'>Analytical Report</span></button>
+    <button aria-label='Support' class='nav-tab' data-view='support' id='tab-support' title='Support'><i class='fa-solid fa-heart'></i> <span class='nav-label'>Support</span></button>
+  </nav>
+
+  <section class='view active' id='view-tracker'>
+  <div class='stats'>
+    <div class='glass stat'>
+      <i class='fa-solid fa-coins bg-ic'></i>
+      <span class='lbl'>Total Monthly Spend</span>
+      <span class='val' id='stat-total'>0.00</span>
+      <span class='subtle' id='stat-total-sub'>Across 0 entries</span>
+    </div>
+    <div class='glass stat'>
+      <i class='fa-solid fa-crown bg-ic'></i>
+      <span class='lbl'>Top Spending Category</span>
+      <span class='val' id='stat-top'>&#8212;</span>
+      <span class='subtle' id='stat-top-sub'>No data yet</span>
+    </div>
+    <div class='glass stat'>
+      <i class='fa-solid fa-gauge-high bg-ic'></i>
+      <span class='lbl'>Monthly Budget Utilized</span>
+      <div class='row' style='gap:8px'>
+        <input class='input' id='budget' min='0' placeholder='Budget' style='max-width:180px' type='number'/>
+        <span class='val' id='stat-budget-pct'>0%</span>
+      </div>
+      <div class='progress' id='budget-progress'><span style='width:0%'></span></div>
+    </div>
+  </div>
+
+  <div class='toolbar glass'>
+    <div class='row' style='gap:8px;flex:1;min-width:240px'>
+      <i class='fa-solid fa-magnifying-glass'></i>
+      <input class='input' id='search' placeholder='Search description, category, vendor…'/>
+    </div>
+    <div>
+      <label class='small'>Month</label>
+      <input class='input' id='month' type='month'/>
+    </div>
+    <button class='btn' id='add-row'><i class='fa-solid fa-plus'></i> Add Row</button>
+    <button class='btn warn' id='save-month'><i class='fa-solid fa-floppy-disk'></i> Save</button>
+    <button class='btn' id='export-xlsx'><i class='fa-solid fa-file-excel'></i> Excel</button>
+    <button class='btn ghost' id='backup-json'><i class='fa-solid fa-download'></i> Backup</button>
+    <button class='btn ghost' id='restore-btn'><i class='fa-solid fa-upload'></i> Restore</button>
+    <input accept='application/json' class='hidden-file' id='restore-file' type='file'/>
+  </div>
+
+  <div class='grid-dashboard'>
+    <div class='glass' style='padding:14px'>
+      <div class='section-title'>
+        <h3><i class='fa-solid fa-table-list'></i> Expense Entries</h3>
+      </div>
+      <div class='table-wrap'>
+        <table class='expenses' id='exp-table'>
+          <thead><tr id='exp-head'></tr></thead>
+          <tbody id='exp-body'></tbody>
+        </table>
+      </div>
+      <div class='cards-mobile' id='exp-cards'></div>
+      <div class='total-bar glass-strong glass'>
+        <span><i class='fa-solid fa-calculator'></i> Grand Total</span>
+        <span class='num' id='grand-total'>0.00</span>
+      </div>
+    </div>
+  </div>
+  </section>
+
+  <section class='view' id='view-charts'>
+    <div class='charts-grid'>
+      <div class='glass chart-card' id='chart-acc'>
+        <div class='section-title'>
+          <h3><i class='fa-solid fa-chart-pie'></i> Spending by Category</h3>
+        </div>
+        <div class='chart-wrap'><canvas id='cat-chart'></canvas></div>
+      </div>
+      <div class='glass chart-card' id='trend-acc'>
+        <div class='section-title'>
+          <h3><i class='fa-solid fa-chart-line'></i> Daily Spend Trend</h3>
+        </div>
+        <div class='chart-wrap'><canvas id='trend-chart'></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section class='view' id='view-reports'>
+    <div id='report-content'></div>
+  </section>
+
+  <section class='view' id='view-support'>
+    <div class='support-hero glass'>
+      <span class='heart-badge'><i class='fa-solid fa-heart'></i> Support the project</span>
+      <h2>Free to use. Powered by people who chip in.</h2>
+      <p>This Expense Tracker template is, and always will be, free for everyone. If it saved you time or money, a small crypto tip helps keep it maintained, ad-free, and improving. Pick any network below &#8212; every bit counts.</p>
+    </div>
+
+    <div class='crypto-grid'>
+      <div class='crypto-asset' data-asset='btc'>
+        <div class='meta'><span class='name'><svg class='ico' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'><circle cx='16' cy='16' fill='#F7931A' r='16'></circle><path d='M21.66 14.36c.32-2.13-1.3-3.27-3.52-4.03l.72-2.88-1.76-.44-.7 2.81c-.46-.12-.94-.22-1.41-.33l.71-2.83-1.76-.44-.72 2.88c-.39-.09-.77-.18-1.13-.27v-.01l-2.43-.6-.47 1.88s1.3.3 1.28.32c.71.18.84.65.82 1.02l-.82 3.28c.05.01.11.03.19.06l-.19-.05-1.15 4.6c-.09.22-.31.54-.81.42.02.02-1.28-.32-1.28-.32l-.87 2.01 2.29.57c.43.11.84.22 1.25.32l-.73 2.91 1.76.44.72-2.88c.48.13.95.25 1.4.36l-.72 2.87 1.76.44.73-2.91c3 .57 5.26.34 6.21-2.37.77-2.18-.04-3.44-1.61-4.26 1.15-.27 2.01-1.02 2.24-2.59zm-4.01 5.63c-.55 2.18-4.21 1.0-5.4.71l.96-3.86c1.19.3 5 .89 4.44 3.15zm.55-5.66c-.5 1.99-3.55.97-4.54.73l.88-3.5c.99.25 4.18.71 3.66 2.77z' fill='#fff'></path></svg>Bitcoin</span><span class='net'>BTC &#183; Native SegWit</span></div>
+        <div class='crypto-addr'>
+          <code>bc1qyewfpfztlsuwmh9g9yecmccmx3654agkj5q3ty</code>
+          <button class='copy-btn' data-copy='bc1qyewfpfztlsuwmh9g9yecmccmx3654agkj5q3ty' data-label='BTC address copied'>
+            <svg fill='none' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' viewBox='0 0 24 24'><rect height='13' rx='2' ry='2' width='13' x='9' y='9'></rect><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'></path></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class='crypto-asset' data-asset='eth'>
+        <div class='meta'><span class='name'><svg class='ico' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'><circle cx='16' cy='16' fill='#627EEA' r='16'></circle><g fill='#fff' fill-rule='nonzero'><path d='M16.498 4v8.87l7.497 3.35z' fill-opacity='.6'></path><path d='M16.498 4L9 16.22l7.498-3.35z'></path><path d='M16.498 21.968v6.027L24 17.616z' fill-opacity='.6'></path><path d='M16.498 27.995v-6.028L9 17.616z'></path><path d='M16.498 20.573l7.497-4.353-7.497-3.348z' fill-opacity='.2'></path><path d='M9 16.22l7.498 4.353v-7.701z' fill-opacity='.6'></path></g></svg>Ethereum</span><span class='net'>ETH &#183; ERC-20</span></div>
+        <div class='crypto-addr'>
+          <code>0x1588fed5b8fe33e5cb1decfabe34d2ff05510185</code>
+          <button class='copy-btn' data-copy='0x1588fed5b8fe33e5cb1decfabe34d2ff05510185' data-label='ETH address copied'>
+            <svg fill='none' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' viewBox='0 0 24 24'><rect height='13' rx='2' ry='2' width='13' x='9' y='9'></rect><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'></path></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class='crypto-asset' data-asset='bnb'>
+        <div class='meta'><span class='name'><svg class='ico' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'><circle cx='16' cy='16' fill='#F3BA2F' r='16'></circle><path d='M12.116 14.404L16 10.52l3.886 3.886 2.26-2.26L16 6l-6.144 6.144 2.26 2.26zM6 16l2.26-2.26L10.52 16l-2.26 2.26L6 16zm6.116 1.596L16 21.48l3.886-3.886 2.26 2.259L16 26l-6.144-6.144-.003-.003 2.263-2.257zM21.48 16l2.26-2.26L26 16l-2.26 2.26L21.48 16zm-3.188-.002h.002V16L16 18.294l-2.291-2.29-.004-.004.004-.003.401-.402.195-.195L16 13.706l2.293 2.293z' fill='#fff'></path></svg>BNB</span><span class='net'>BEP-20 &#183; BNB Smart Chain</span></div>
+        <div class='crypto-addr'>
+          <code>0x1588fed5b8fe33e5cb1decfabe34d2ff05510185</code>
+          <button class='copy-btn' data-copy='0x1588fed5b8fe33e5cb1decfabe34d2ff05510185' data-label='BNB address copied'>
+            <svg fill='none' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' viewBox='0 0 24 24'><rect height='13' rx='2' ry='2' width='13' x='9' y='9'></rect><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'></path></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class='crypto-asset' data-asset='xrp'>
+        <div class='meta'><span class='name'><svg class='ico' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'><circle cx='16' cy='16' fill='#23292F' r='16'></circle><path d='M23.07 8h2.89l-6.015 5.957a5.621 5.621 0 01-7.89 0L6.035 8H8.93l4.57 4.523a3.556 3.556 0 004.996 0L23.07 8zM8.895 24.563H6l6.055-5.993a5.621 5.621 0 017.89 0L26 24.563h-2.895l-4.61-4.563a3.556 3.556 0 00-4.996 0l-4.604 4.563z' fill='#fff'></path></svg>XRP</span><span class='net'>XRP Ledger &#183; No memo required</span></div>
+        <div class='crypto-addr'>
+          <code>rn15op3z6BEBmvmPdxY55uXBjGdo861FVS</code>
+          <button class='copy-btn' data-copy='rn15op3z6BEBmvmPdxY55uXBjGdo861FVS' data-label='XRP address copied'>
+            <svg fill='none' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' viewBox='0 0 24 24'><rect height='13' rx='2' ry='2' width='13' x='9' y='9'></rect><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'></path></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class='crypto-asset' data-asset='xlm'>
+        <div class='meta'><span class='name'><svg class='ico' viewBox='0 0 32 32' xmlns='http://www.w3.org/2000/svg'><circle cx='16' cy='16' fill='#000' r='16'></circle><path d='M22.518 9.36l-2.453 1.25-9.179 4.677a6.413 6.413 0 01-.064-.954 6.34 6.34 0 019.181-5.665l1.494-.762.225-.115a7.998 7.998 0 00-12.477 6.542c0 .312.018.624.054.934a1.36 1.36 0 01-.737 1.345L7 17.683l9.984-5.087 1.43-.728 8.605-4.385V5.617l-4.5 2.293-.001 1.45zm2.45 2.97l-15.385 7.84-1.432.728-2.628 1.34v1.866l2.625-1.337 2.453-1.25 9.187-4.682c.04.318.061.638.063.96a6.341 6.341 0 01-9.186 5.66l-.085.045-1.633.832a7.998 7.998 0 0012.478-6.537c0-.314-.019-.628-.055-.94a1.36 1.36 0 01.736-1.345l2.864-1.46v-1.865l-.002.005z' fill='#fff'></path></svg>Stellar</span><span class='net'>XLM &#183; No memo required</span></div>
+        <div class='crypto-addr'>
+          <code>GBIUM5PJRB6OQ3HQGPQMGMVL6EDR2ICZY6C32INV7WHLOIF7G4URFHOA</code>
+          <button class='copy-btn' data-copy='GBIUM5PJRB6OQ3HQGPQMGMVL6EDR2ICZY6C32INV7WHLOIF7G4URFHOA' data-label='Stellar address copied'>
+            <svg fill='none' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' viewBox='0 0 24 24'><rect height='13' rx='2' ry='2' width='13' x='9' y='9'></rect><path d='M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1'></path></svg>
+            Copy
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class='support-note'>
+      <i class='fa-solid fa-circle-info'></i>
+      <div><strong>Double-check before sending.</strong> Send only the matching asset on its listed network. Cross-chain transfers (e.g. sending ETH to the BTC address) cannot be recovered. EVM addresses for ETH and BNB look identical but are routed by the network you select in your wallet.</div>
+    </div>
+  </section>
+
+  <footer class='site-credit' style='text-align:center;padding:28px 0 18px;color:var(--text-dim);font-size:.85rem'>
+    Designed with <span style='color:#ff6b81'>&#9829;</span> by
+    <a href='https://github.com/ola1de' rel='noopener' style='color:var(--accent);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:6px' target='_blank'><i class='fa-brands fa-github'></i> ola1de</a>
+  </footer>
+</div>
+
+<script>
+//<![CDATA[
+(function(){
+  'use strict';
+
+  /* ---------------- Currency ---------------- */
+  const CURRENCIES = {
+    AED:{symbol:'\u062F.\u0625',locale:'ar-AE'},
+    AFN:{symbol:'\u060B',locale:'fa-AF'},
+    ALL:{symbol:'L',locale:'sq-AL'},
+    AMD:{symbol:'\u058F',locale:'hy-AM'},
+    AOA:{symbol:'Kz',locale:'pt-AO'},
+    ARS:{symbol:'$',locale:'es-AR'},
+    AUD:{symbol:'A$',locale:'en-AU'},
+    AWG:{symbol:'\u0192',locale:'nl-AW'},
+    AZN:{symbol:'\u20BC',locale:'az-AZ'},
+    BAM:{symbol:'KM',locale:'bs-BA'},
+    BBD:{symbol:'Bds$',locale:'en-BB'},
+    BDT:{symbol:'\u09F3',locale:'bn-BD'},
+    BGN:{symbol:'\u043B\u0432',locale:'bg-BG'},
+    BHD:{symbol:'\u0628.\u062F',locale:'ar-BH'},
+    BIF:{symbol:'FBu',locale:'fr-BI'},
+    BMD:{symbol:'BD$',locale:'en-BM'},
+    BND:{symbol:'B$',locale:'ms-BN'},
+    BOB:{symbol:'Bs.',locale:'es-BO'},
+    BRL:{symbol:'R$',locale:'pt-BR'},
+    BSD:{symbol:'B$',locale:'en-BS'},
+    BTN:{symbol:'Nu.',locale:'dz-BT'},
+    BWP:{symbol:'P',locale:'en-BW'},
+    BYN:{symbol:'Br',locale:'be-BY'},
+    BZD:{symbol:'BZ$',locale:'en-BZ'},
+    CAD:{symbol:'C$',locale:'en-CA'},
+    CDF:{symbol:'FC',locale:'fr-CD'},
+    CHF:{symbol:'CHF',locale:'de-CH'},
+    CLP:{symbol:'CLP$',locale:'es-CL'},
+    CNY:{symbol:'\u00A5',locale:'zh-CN'},
+    COP:{symbol:'COL$',locale:'es-CO'},
+    CRC:{symbol:'\u20A1',locale:'es-CR'},
+    CUP:{symbol:'\u20B1',locale:'es-CU'},
+    CVE:{symbol:'Esc',locale:'pt-CV'},
+    CZK:{symbol:'K\u010D',locale:'cs-CZ'},
+    DJF:{symbol:'Fdj',locale:'fr-DJ'},
+    DKK:{symbol:'kr',locale:'da-DK'},
+    DOP:{symbol:'RD$',locale:'es-DO'},
+    DZD:{symbol:'\u062F.\u062C',locale:'ar-DZ'},
+    EGP:{symbol:'E\u00A3',locale:'ar-EG'},
+    ERN:{symbol:'Nfk',locale:'ti-ER'},
+    ETB:{symbol:'Br',locale:'am-ET'},
+    EUR:{symbol:'\u20AC',locale:'es-ES'},
+    FJD:{symbol:'FJ$',locale:'en-FJ'},
+    GBP:{symbol:'\u00A3',locale:'en-GB'},
+    GEL:{symbol:'\u20BE',locale:'ka-GE'},
+    GHS:{symbol:'\u20B5',locale:'en-GH'},
+    GIP:{symbol:'\u00A3',locale:'en-GI'},
+    GMD:{symbol:'D',locale:'en-GM'},
+    GNF:{symbol:'FG',locale:'fr-GN'},
+    GTQ:{symbol:'Q',locale:'es-GT'},
+    GYD:{symbol:'G$',locale:'en-GY'},
+    HKD:{symbol:'HK$',locale:'zh-HK'},
+    HNL:{symbol:'L',locale:'es-HN'},
+    HTG:{symbol:'G',locale:'fr-HT'},
+    HUF:{symbol:'Ft',locale:'hu-HU'},
+    IDR:{symbol:'Rp',locale:'id-ID'},
+    ILS:{symbol:'\u20AA',locale:'he-IL'},
+    INR:{symbol:'\u20B9',locale:'en-IN'},
+    IQD:{symbol:'\u0639.\u062F',locale:'ar-IQ'},
+    IRR:{symbol:'\uFDFC',locale:'fa-IR'},
+    ISK:{symbol:'kr',locale:'is-IS'},
+    JMD:{symbol:'J$',locale:'en-JM'},
+    JOD:{symbol:'\u062F.\u0627',locale:'ar-JO'},
+    JPY:{symbol:'\u00A5',locale:'ja-JP'},
+    KES:{symbol:'KSh',locale:'en-KE'},
+    KGS:{symbol:'\u0441',locale:'ky-KG'},
+    KHR:{symbol:'\u17DB',locale:'km-KH'},
+    KMF:{symbol:'CF',locale:'fr-KM'},
+    KPW:{symbol:'\u20A9',locale:'ko-KP'},
+    KRW:{symbol:'\u20A9',locale:'ko-KR'},
+    KWD:{symbol:'\u062F.\u0643',locale:'ar-KW'},
+    KYD:{symbol:'CI$',locale:'en-KY'},
+    KZT:{symbol:'\u20B8',locale:'kk-KZ'},
+    LAK:{symbol:'\u20AD',locale:'lo-LA'},
+    LBP:{symbol:'\u0644.\u0644',locale:'ar-LB'},
+    LKR:{symbol:'Rs',locale:'si-LK'},
+    LRD:{symbol:'L$',locale:'en-LR'},
+    LSL:{symbol:'L',locale:'en-LS'},
+    LYD:{symbol:'\u0644.\u062F',locale:'ar-LY'},
+    MAD:{symbol:'\u062F.\u0645.',locale:'ar-MA'},
+    MDL:{symbol:'L',locale:'ro-MD'},
+    MGA:{symbol:'Ar',locale:'fr-MG'},
+    MKD:{symbol:'\u0434\u0435\u043D',locale:'mk-MK'},
+    MMK:{symbol:'K',locale:'my-MM'},
+    MNT:{symbol:'\u20AE',locale:'mn-MN'},
+    MOP:{symbol:'MOP$',locale:'zh-MO'},
+    MRU:{symbol:'UM',locale:'ar-MR'},
+    MUR:{symbol:'\u20A8',locale:'en-MU'},
+    MVR:{symbol:'Rf',locale:'dv-MV'},
+    MWK:{symbol:'MK',locale:'en-MW'},
+    MXN:{symbol:'Mex$',locale:'es-MX'},
+    MYR:{symbol:'RM',locale:'ms-MY'},
+    MZN:{symbol:'MT',locale:'pt-MZ'},
+    NAD:{symbol:'N$',locale:'en-NA'},
+    NGN:{symbol:'\u20A6',locale:'en-NG'},
+    NIO:{symbol:'C$',locale:'es-NI'},
+    NOK:{symbol:'kr',locale:'nb-NO'},
+    NPR:{symbol:'\u20A8',locale:'ne-NP'},
+    NZD:{symbol:'NZ$',locale:'en-NZ'},
+    OMR:{symbol:'\u0631.\u0639.',locale:'ar-OM'},
+    PAB:{symbol:'B/.',locale:'es-PA'},
+    PEN:{symbol:'S/.',locale:'es-PE'},
+    PGK:{symbol:'K',locale:'en-PG'},
+    PHP:{symbol:'\u20B1',locale:'en-PH'},
+    PKR:{symbol:'\u20A8',locale:'ur-PK'},
+    PLN:{symbol:'z\u0142',locale:'pl-PL'},
+    PYG:{symbol:'\u20B2',locale:'es-PY'},
+    QAR:{symbol:'\u0631.\u0642',locale:'ar-QA'},
+    RON:{symbol:'lei',locale:'ro-RO'},
+    RSD:{symbol:'\u0434\u0438\u043D.',locale:'sr-RS'},
+    RUB:{symbol:'\u20BD',locale:'ru-RU'},
+    RWF:{symbol:'FRw',locale:'rw-RW'},
+    SAR:{symbol:'\u0631.\u0633',locale:'ar-SA'},
+    SBD:{symbol:'SI$',locale:'en-SB'},
+    SCR:{symbol:'\u20A8',locale:'en-SC'},
+    SDG:{symbol:'\u062C.\u0633.',locale:'ar-SD'},
+    SEK:{symbol:'kr',locale:'sv-SE'},
+    SGD:{symbol:'S$',locale:'en-SG'},
+    SLE:{symbol:'Le',locale:'en-SL'},
+    SOS:{symbol:'S',locale:'so-SO'},
+    SRD:{symbol:'Sr$',locale:'nl-SR'},
+    SSP:{symbol:'\u00A3',locale:'en-SS'},
+    SYP:{symbol:'\u00A3S',locale:'ar-SY'},
+    SZL:{symbol:'E',locale:'en-SZ'},
+    THB:{symbol:'\u0E3F',locale:'th-TH'},
+    TJS:{symbol:'\u0405\u041C',locale:'tg-TJ'},
+    TMT:{symbol:'m',locale:'tk-TM'},
+    TND:{symbol:'\u062F.\u062A',locale:'ar-TN'},
+    TOP:{symbol:'T$',locale:'en-TO'},
+    TRY:{symbol:'\u20BA',locale:'tr-TR'},
+    TTD:{symbol:'TT$',locale:'en-TT'},
+    TWD:{symbol:'NT$',locale:'zh-TW'},
+    TZS:{symbol:'TSh',locale:'sw-TZ'},
+    UAH:{symbol:'\u20B4',locale:'uk-UA'},
+    UGX:{symbol:'USh',locale:'en-UG'},
+    USD:{symbol:'$',locale:'en-US'},
+    UYU:{symbol:'$U',locale:'es-UY'},
+    UZS:{symbol:'\u0441\u045E\u043C',locale:'uz-UZ'},
+    VES:{symbol:'Bs.S',locale:'es-VE'},
+    VND:{symbol:'\u20AB',locale:'vi-VN'},
+    VUV:{symbol:'VT',locale:'en-VU'},
+    WST:{symbol:'WS$',locale:'en-WS'},
+    XAF:{symbol:'FCFA',locale:'fr-GA'},
+    XOF:{symbol:'CFA',locale:'fr-TG'},
+    YER:{symbol:'\uFDFC',locale:'ar-YE'},
+    ZAR:{symbol:'R',locale:'en-ZA'},
+    ZMW:{symbol:'ZK',locale:'en-ZM'},
+    ZWL:{symbol:'Z$',locale:'en-ZW'}
+  };
+
+  /* ---------------- Sector Schemas ----------------
+     - Common extra categories appended to every sector
+     - 'receipt' is now a Receipt Number (text), not a URL
+     - Removed "Project Site" field from construction
+  */
+  const EXTRA_CATS = ['Miscellaneous','Welfare','Maintenance','Fuel','Office Supplies','Communication','Travel','Bank Charges','Taxes','Donations'];
+  function withExtras(arr){ const set=new Set([...arr,...EXTRA_CATS]); return Array.from(set); }
+
+  const RECEIPT = {key:'receipt',label:'Receipt #',type:'text'};
+
+  const SECTORS = {
+    construction: {
+      label: 'Construction & Civil Engineering',
+      fields: [
+        {key:'date',label:'Date',type:'date'},
+        {key:'category',label:'Category',type:'select'},
+        {key:'description',label:'Description',type:'text',searchField:true},
+        {key:'unitPrice',label:'Unit Price',type:'number',calc:'price'},
+        {key:'qty',label:'Qty',type:'number',calc:'qty'},
+        {key:'amount',label:'Amount',type:'amount'},
+        RECEIPT
+      ],
+      categories: withExtras(['Cement','Steel/Rebar','Sand & Gravel','Labour Wages','Equipment Rental','Subcontractor','Site Utilities','Permits & Fees','Transport','Safety Gear'])
+    },
+    realestate: {
+      label: 'Real Estate & Property Management',
+      fields: [
+        {key:'date',label:'Date',type:'date'},
+        {key:'property',label:'Property/Unit',type:'text',searchField:true},
+        {key:'category',label:'Expense Category',type:'select'},
+        {key:'contractor',label:'Contractor',type:'text'},
+        {key:'unitPrice',label:'Cost',type:'number',calc:'price'},
+        {key:'qty',label:'Qty',type:'number',calc:'qty',default:1},
+        {key:'amount',label:'Amount',type:'amount'},
+        {key:'phase',label:'Project Phase',type:'text'},
+        RECEIPT
+      ],
+      categories: withExtras(['Plumbing Repair','Electrical Repair','Painting','Cleaning','Property Tax','Insurance','Tenant Refund','HVAC Maintenance','Landscaping','Security'])
+    },
+    agriculture: {
+      label: 'Agriculture & Farming',
+      fields: [
+        {key:'date',label:'Date',type:'date'},
+        {key:'category',label:'Input Category',type:'select'},
+        {key:'supplier',label:'Supplier',type:'text'},
+        {key:'unitPrice',label:'Unit Cost',type:'number',calc:'price'},
+        {key:'qty',label:'Quantity',type:'number',calc:'qty'},
+        {key:'amount',label:'Amount',type:'amount'},
+        {key:'section',label:'Farm Section',type:'text',searchField:true},
+        RECEIPT
+      ],
+      categories: withExtras(['Seeds','Fertilizer','Animal Feed','Pesticides','Veterinary','Irrigation','Farm Labour','Fuel & Power','Equipment','Storage'])
+    },
+    retail: {
+      label: 'Retail & E-commerce',
+      fields: [
+        {key:'date',label:'Date',type:'date'},
+        {key:'sku',label:'Item / SKU',type:'text',searchField:true},
+        {key:'supplier',label:'Supplier',type:'text'},
+        {key:'category',label:'Category',type:'select'},
+        {key:'unitPrice',label:'Supplier Price',type:'number',calc:'price'},
+        {key:'qty',label:'Qty Ordered',type:'number',calc:'qty'},
+        {key:'amount',label:'Total Cost',type:'amount'},
+        RECEIPT
+      ],
+      categories: withExtras(['Apparel','Electronics','Groceries','Cosmetics','Stationery','Home Goods','Packaging','Shipping','Marketing','POS / Software'])
+    },
+    manufacturing: {
+      label: 'Manufacturing & Factory',
+      fields: [
+        {key:'date',label:'Date',type:'date'},
+        {key:'material',label:'Material / Part',type:'text',searchField:true},
+        {key:'department',label:'Department',type:'text'},
+        {key:'category',label:'Category',type:'select'},
+        {key:'unitPrice',label:'Unit Cost',type:'number',calc:'price'},
+        {key:'qty',label:'Qty',type:'number',calc:'qty'},
+        {key:'amount',label:'Total Cost',type:'amount'},
+        {key:'machine',label:'Machine ID',type:'text'},
+        RECEIPT
+      ],
+      categories: withExtras(['Raw Material','Spare Parts','Consumables','Maintenance','Energy','Quality Control','Labour','Logistics','Tooling','Safety'])
+    },
+    logistics: {
+      label: 'Logistics & Transport',
+      fields: [
+        {key:'date',label:'Date',type:'date'},
+        {key:'vehicle',label:'Vehicle / Plate',type:'text',searchField:true},
+        {key:'category',label:'Category',type:'select'},
+        {key:'unitPrice',label:'Cost',type:'number',calc:'price'},
+        {key:'qty',label:'Qty',type:'number',calc:'qty',default:1},
+        {key:'amount',label:'Amount',type:'amount'},
+        {key:'driver',label:'Driver',type:'text'},
+        RECEIPT
+      ],
+      categories: withExtras(['Fuel','Toll','Repair','Tyres','Insurance','Driver Allowance','Parking','Maintenance','Permits','Spare Parts'])
+    },
+    it: {
+      label: 'IT & Professional Services',
+      fields: [
+        {key:'date',label:'Date',type:'date'},
+        {key:'tool',label:'Tool / Contractor',type:'text',searchField:true},
+        {key:'category',label:'License Type',type:'select'},
+        {key:'unitPrice',label:'Cost',type:'number',calc:'price'},
+        {key:'qty',label:'Qty',type:'number',calc:'qty',default:1},
+        {key:'amount',label:'Amount',type:'amount'},
+        {key:'cycle',label:'Billing Cycle',type:'text'},
+        RECEIPT
+      ],
+      categories: withExtras(['SaaS Subscription','Cloud Hosting','Domain & DNS','Freelancer','Hardware','Security/Antivirus','Training','Office Software','Internet','Consulting'])
+    },
+    hospitality: {
+      label: 'Hospitality & Catering',
+      fields: [
+        {key:'date',label:'Date',type:'date'},
+        {key:'category',label:'Category',type:'select'},
+        {key:'supplier',label:'Supplier',type:'text',searchField:true},
+        {key:'unitPrice',label:'Cost',type:'number',calc:'price'},
+        {key:'qty',label:'Qty',type:'number',calc:'qty',default:1},
+        {key:'amount',label:'Amount',type:'amount'},
+        RECEIPT
+      ],
+      categories: withExtras(['Ingredients','Beverages','Staff Wages','Utilities','Cleaning Supplies','Linen & Laundry','Decor','Marketing','Repairs','Permits'])
+    },
+    general: {
+      label: 'General / Other',
+      fields: [
+        {key:'date',label:'Date',type:'date'},
+        {key:'category',label:'Category',type:'select'},
+        {key:'description',label:'Description',type:'text',searchField:true},
+        {key:'vendor',label:'Vendor',type:'text'},
+        {key:'unitPrice',label:'Unit Price',type:'number',calc:'price'},
+        {key:'qty',label:'Qty',type:'number',calc:'qty',default:1},
+        {key:'amount',label:'Amount',type:'amount'},
+        RECEIPT
+      ],
+      categories: withExtras(['Operations','Rent','Utilities','Salaries','Marketing','Supplies','Subscriptions','Insurance'])
+    }
+  };
+
+  /* ---------------- Storage Keys ---------------- */
+  const K_SETUP = 'expense_setup_v2';
+  const K_PROFILES = 'expense_profiles_v1';
+  const K_THEME = 'expense_theme_v1';
+  const K_LAST_BACKUP_PROMPT = 'expense_last_backup_prompt';
+  const budgetKey = (profileId) => 'expense_budget_' + profileId;
+  // Profile-scoped month key so different users do NOT mix
+  const monthKey = (profileId, ym) => 'expenses_' + profileId + '_' + ym.replace('-','_');
+  function generateId(){ return 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11); }
+
+  /* ---------------- State ---------------- */
+  let setup = null;
+  let currentMonth = null;
+  let rows = [];
+  let catChart = null;
+  let trendChart = null;
+  let searchTerm = '';
+
+  /* ---------------- Helpers ---------------- */
+  const $ = (s, r) => (r||document).querySelector(s);
+  const $$ = (s, r) => Array.from((r||document).querySelectorAll(s));
+  function currencyMeta(){ return CURRENCIES[(setup && setup.currency) || 'NGN'] || CURRENCIES.NGN; }
+  function fmt(n){
+    const m = currencyMeta();
+    const num = Number(n)||0;
+    try { return m.symbol + num.toLocaleString(m.locale,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    catch(e){ return m.symbol + num.toFixed(2); }
+  }
+  const todayMonth = () => { const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); };
+  const todayDate = () => { const d=new Date(); return d.toISOString().slice(0,10); };
+  function schema(){ return SECTORS[setup.sector] || SECTORS.general; }
+  function getCSS(v){ return getComputedStyle(document.body).getPropertyValue(v).trim() || '#fff'; }
+
+  /* ---------------- Custom Modal (alert / confirm / prompt) ---------------- */
+  function modal(opts){
+    return new Promise((resolve) => {
+      const ov = document.createElement('div');
+      ov.className = 'modal-overlay';
+      const variant = opts.variant || 'info';
+      const icon = opts.icon || (variant==='danger'?'fa-triangle-exclamation':variant==='warn'?'fa-circle-exclamation':variant==='success'?'fa-circle-check':'fa-circle-info');
+      ov.innerHTML =
+        '<div class="glass modal-card '+variant+'" role="dialog" aria-modal="true">' +
+          '<h3><i class="fa-solid '+icon+'"></i><span></span></h3>' +
+          '<div class="m-body"></div>' +
+          (opts.input ? '<input class="input" id="m-input"/>' : '') +
+          '<div class="modal-actions"></div>' +
+        '</div>';
+      document.body.appendChild(ov);
+      ov.querySelector('h3 span').textContent = opts.title || 'Notice';
+      const body = ov.querySelector('.m-body');
+      if(opts.html) body.innerHTML = opts.html;
+      else { body.style.color='var(--text-dim)'; body.textContent = opts.message||''; }
+      const actions = ov.querySelector('.modal-actions');
+      const buttons = opts.buttons || [{label:'OK',value:true,primary:true}];
+      const close = (v) => { ov.style.opacity='0'; setTimeout(()=>ov.remove(),150); resolve(v); };
+      buttons.forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'btn ' + (b.primary ? (variant==='danger'?'danger':variant==='warn'?'warn':'') : 'ghost');
+        btn.innerHTML = (b.icon?'<i class="fa-solid '+b.icon+'"></i> ':'') + b.label;
+        btn.addEventListener('click', () => {
+          if(opts.input){
+            const val = ov.querySelector('#m-input').value;
+            close(b.value===false ? null : val);
+          } else close(b.value);
+        });
+        actions.appendChild(btn);
+      });
+      if(opts.input){
+        const inp = ov.querySelector('#m-input');
+        inp.value = opts.default || '';
+        inp.placeholder = opts.placeholder || '';
+        setTimeout(()=>inp.focus(),50);
+        inp.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ close(inp.value); } });
+      }
+      ov.addEventListener('click', (e) => { if(e.target===ov && opts.dismissOnBackdrop!==false) close(opts.cancelValue===undefined?false:opts.cancelValue); });
+      document.addEventListener('keydown', function esc(e){ if(e.key==='Escape'){ document.removeEventListener('keydown',esc); close(opts.cancelValue===undefined?false:opts.cancelValue); }});
+    });
+  }
+  const ui = {
+    alert:   (msg,title) => modal({title:title||'Notice', message:msg, buttons:[{label:'OK',value:true,primary:true}]}),
+    success: (msg,title) => modal({title:title||'Done', message:msg, variant:'success', buttons:[{label:'OK',value:true,primary:true}]}),
+    warn:    (msg,title) => modal({title:title||'Warning', message:msg, variant:'warn', buttons:[{label:'OK',value:true,primary:true}]}),
+    error:   (msg,title) => modal({title:title||'Error', message:msg, variant:'danger', buttons:[{label:'OK',value:true,primary:true}]}),
+    confirm: (msg,title,opts) => modal({title:title||'Please confirm', message:msg, variant:(opts&&opts.variant)||'warn', buttons:[
+      {label:(opts&&opts.cancelLabel)||'Cancel', value:false},
+      {label:(opts&&opts.okLabel)||'Confirm', value:true, primary:true, icon:opts&&opts.okIcon}
+    ]})
+  };
+  // Expose globally so user code can call too
+  window.uiModal = modal; window.ui = ui;
+
+  /* ---------------- Profiles (suggest & restore) ---------------- */
+  function loadProfiles(){
+    try { return JSON.parse(localStorage.getItem(K_PROFILES)||'[]'); } catch(e){ return []; }
+  }
+  function saveProfile(s){
+    const list = loadProfiles();
+    // Dedupe on profile id when available, else name+company+sector
+    const sig = (p) => p.id ? ('id:'+p.id) : ((p.name||'').toLowerCase()+'|'+(p.company||'').toLowerCase()+'|'+p.sector);
+    const filtered = list.filter(p => sig(p) !== sig(s));
+    filtered.unshift({...s, savedAt: Date.now()});
+    localStorage.setItem(K_PROFILES, JSON.stringify(filtered.slice(0,15)));
+  }
+  function fillDatalist(id, values){
+    const dl = $('#'+id); if(!dl) return;
+    dl.innerHTML = '';
+    Array.from(new Set(values.filter(Boolean))).forEach(v => {
+      const o = document.createElement('option'); o.value = v; dl.appendChild(o);
+    });
+  }
+  function renderProfileChips(){
+    const wrap = $('#profile-restore');
+    const chips = $('#profile-chips');
+    const list = loadProfiles();
+    if(!list.length){ wrap.classList.add('hidden'); return; }
+    wrap.classList.remove('hidden');
+    chips.innerHTML = '';
+    list.forEach((p,i) => {
+      const c = document.createElement('div');
+      c.className = 'profile-chip';
+      c.innerHTML = '<span><i class="fa-solid fa-user"></i> '+escapeHtml(p.name)+' &#183; '+escapeHtml(p.company)+' <em style="opacity:.6">('+escapeHtml(p.role)+')</em></span> <span class="x" title="Remove">&#215;</span>';
+      c.querySelector('span:first-child').addEventListener('click', () => {
+        $('#ob-name').value = p.name||'';
+        $('#ob-company').value = p.company||'';
+        $('#ob-role').value = p.role||'';
+        $('#ob-sector').value = p.sector||'';
+        if(p.currency) $('#ob-currency').value = p.currency;
+        window.__pickedProfileId = p.id || null;
+      });
+      c.querySelector('.x').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const ok = await ui.confirm('Remove this saved profile? Saved monthly data for the sector is not deleted.','Remove profile',{okLabel:'Remove',variant:'danger'});
+        if(ok){ const arr=loadProfiles(); arr.splice(i,1); localStorage.setItem(K_PROFILES,JSON.stringify(arr)); renderProfileChips(); }
+      });
+      chips.appendChild(c);
+    });
+    fillDatalist('dl-names', list.map(p=>p.name));
+    fillDatalist('dl-companies', list.map(p=>p.company));
+    fillDatalist('dl-roles', list.map(p=>p.role));
+  }
+  function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+  /* ---------------- Rows ---------------- */
+  function makeBlankRow(){
+    const r = {};
+    schema().fields.forEach(f => {
+      if(f.type==='date') r[f.key] = todayDate();
+      else if(f.calc==='qty') r[f.key] = f.default!=null? f.default : 1;
+      else if(f.calc==='price' || f.type==='amount') r[f.key] = 0;
+      else r[f.key] = '';
+    });
+    return r;
+  }
+  function calcRowAmount(r){
+    const f = schema().fields;
+    const pk = (f.find(x=>x.calc==='price')||{}).key;
+    const qk = (f.find(x=>x.calc==='qty')||{}).key;
+    const ak = (f.find(x=>x.type==='amount')||{}).key;
+    if(pk && qk && ak) r[ak] = (Number(r[pk])||0) * (Number(r[qk])||0);
+    return r;
+  }
+  function grandTotal(){
+    const ak = (schema().fields.find(x=>x.type==='amount')||{}).key;
+    if(!ak) return 0;
+    return rows.reduce((s,r)=> s + (Number(r[ak])||0), 0);
+  }
+  function categoryTotals(){
+    const ak = (schema().fields.find(x=>x.type==='amount')||{}).key;
+    const m = {};
+    rows.forEach(r => {
+      const c = (String(r.category||'Uncategorized').trim()) || 'Uncategorized';
+      m[c] = (m[c]||0) + (Number(r[ak])||0);
+    });
+    return m;
+  }
+  function dailyTotals(){
+    const ak = (schema().fields.find(x=>x.type==='amount')||{}).key;
+    const m = {};
+    rows.forEach(r => { const d=r.date||'\u2014'; m[d]=(m[d]||0)+(Number(r[ak])||0); });
+    return Object.keys(m).sort().reduce((o,k)=>{o[k]=m[k];return o;},{});
+  }
+  function searchMatches(r){
+    if(!searchTerm) return true;
+    const s = searchTerm.toLowerCase();
+    return schema().fields.some(f => {
+      if(['text','select'].includes(f.type)) return String(r[f.key]||'').toLowerCase().includes(s);
+      return false;
+    });
+  }
+
+  /* ---------------- Rendering ---------------- */
+  function renderHead(){
+    const head = $('#exp-head'); head.innerHTML='';
+    schema().fields.forEach(f => { const th=document.createElement('th'); th.textContent=f.label; head.appendChild(th); });
+    const th = document.createElement('th'); th.textContent=''; head.appendChild(th);
+  }
+  function buildInput(field, value, onChange){
+    let el;
+    if(field.type==='select'){
+      el = document.createElement('select'); el.className='input';
+      const opt0=document.createElement('option'); opt0.value=''; opt0.textContent='Select\u2026'; el.appendChild(opt0);
+      schema().categories.forEach(c => {
+        const o=document.createElement('option'); o.value=c; o.textContent=c;
+        if(value===c) o.selected=true; el.appendChild(o);
+      });
+    } else if(field.type==='amount'){
+      el = document.createElement('input'); el.className='input';
+      el.type='text'; el.readOnly=true; el.value = fmt(value);
+    } else {
+      el = document.createElement('input'); el.className='input';
+      if(field.type==='number'){
+        // Use text + inputmode=decimal so users can freely type multi-digit / decimal values
+        // without the browser/JS coercing partial input ('', '12.', '0.0') back to 0.
+        el.type='text';
+        el.inputMode='decimal';
+        el.setAttribute('pattern','[0-9]*[.,]?[0-9]*');
+        el.autocomplete='off';
+        el.value = (value==null || value==='') ? '' : String(value);
+      } else {
+        el.type = field.type==='date'?'date':'text';
+        el.value = value==null? '' : value;
+      }
+      if(field.key==='receipt') el.placeholder='e.g. RCT-00123';
+    }
+    el.addEventListener('input', onChange);
+    el.addEventListener('change', onChange);
+    return el;
+  }
+  function renderBody(){
+    const body = $('#exp-body'); const cards = $('#exp-cards');
+    body.innerHTML=''; cards.innerHTML='';
+    rows.forEach((r, idx) => {
+      if(!searchMatches(r)) return;
+      const tr = document.createElement('tr');
+      schema().fields.forEach(f => {
+        const td = document.createElement('td');
+        if(f.type==='amount') td.className='amount';
+        td.appendChild(buildInput(f, r[f.key], (e)=>onCellChange(idx, f, e.target.value)));
+        tr.appendChild(td);
+      });
+      const tdDel = document.createElement('td');
+      const del = document.createElement('button');
+      del.className='del-btn'; del.title='Delete row';
+      del.innerHTML='<i class="fa-solid fa-trash"></i>';
+      del.onclick = async () => {
+        const ok = await ui.confirm('Delete this entry?','Delete row',{okLabel:'Delete',variant:'danger',okIcon:'fa-trash'});
+        if(ok){ rows.splice(idx,1); renderAll(); }
+      };
+      tdDel.appendChild(del); tr.appendChild(tdDel); body.appendChild(tr);
+
+      const card = document.createElement('div'); card.className='glass card-row';
+      schema().fields.forEach(f => {
+        const fw=document.createElement('div'); fw.className='field';
+        const lbl=document.createElement('label'); lbl.textContent=f.label;
+        fw.appendChild(lbl); fw.appendChild(buildInput(f, r[f.key], (e)=>onCellChange(idx, f, e.target.value)));
+        card.appendChild(fw);
+      });
+      const acts=document.createElement('div'); acts.className='row-actions';
+      const delM=document.createElement('button'); delM.className='del-btn';
+      delM.innerHTML='<i class="fa-solid fa-trash"></i> Delete';
+      delM.style.padding='10px 16px'; delM.style.borderRadius='12px';
+      delM.onclick = async () => {
+        const ok = await ui.confirm('Delete this entry?','Delete row',{okLabel:'Delete',variant:'danger',okIcon:'fa-trash'});
+        if(ok){ rows.splice(idx,1); renderAll(); }
+      };
+      acts.appendChild(delM); card.appendChild(acts); cards.appendChild(card);
+    });
+  }
+  function onCellChange(idx, field, value){
+    if(field.type==='number'){
+      // Accept partial numeric strings like '', '12.', '0.0' without clobbering input.
+      const cleaned = String(value).replace(',', '.').replace(/[^0-9.]/g,'');
+      // Store the number for math, but only if it parses; otherwise treat as 0 for totals.
+      const n = parseFloat(cleaned);
+      rows[idx][field.key] = isNaN(n) ? 0 : n;
+    } else {
+      rows[idx][field.key] = value;
+    }
+    if(field.calc==='price' || field.calc==='qty') calcRowAmount(rows[idx]);
+    renderStats();
+    // Update amount cells in place (do NOT re-render the body — it would steal focus).
+    const ak = (schema().fields.find(x=>x.type==='amount')||{}).key;
+    if(ak){
+      const amountVal = fmt(rows[idx][ak]);
+      const tr = document.querySelectorAll('#exp-body tr')[idx];
+      if(tr){
+        const inp = tr.querySelector('td.amount input');
+        if(inp) inp.value = amountVal;
+      }
+      const card = document.querySelectorAll('#exp-cards .card-row')[idx];
+      if(card){
+        const fields = schema().fields;
+        const akIndex = fields.findIndex(x=>x.key===ak);
+        const fieldDivs = card.querySelectorAll('.field');
+        if(fieldDivs[akIndex]){
+          const inp = fieldDivs[akIndex].querySelector('input');
+          if(inp) inp.value = amountVal;
+        }
+      }
+    }
+    // Debounced chart refresh only — never touches the inputs.
+    clearTimeout(onCellChange._t);
+    onCellChange._t = setTimeout(()=>{ renderCharts(); }, 400);
+  }
+  function renderStats(){
+    const total = grandTotal();
+    $('#grand-total').textContent = fmt(total);
+    $('#stat-total').textContent = fmt(total);
+    $('#stat-total-sub').textContent = 'Across '+rows.length+' entr'+(rows.length===1?'y':'ies');
+    const cats = categoryTotals();
+    let top=null, topVal=-1;
+    Object.entries(cats).forEach(([k,v])=>{ if(v>topVal){top=k;topVal=v;} });
+    $('#stat-top').textContent = (top && topVal>0) ? top : '\u2014';
+    $('#stat-top-sub').textContent = (top && topVal>0) ? fmt(topVal) : 'No data yet';
+    const budget = Number(localStorage.getItem(budgetKey(setup.id)))||0;
+    const pct = budget>0 ? Math.min(999,(total/budget)*100) : 0;
+    $('#stat-budget-pct').textContent = budget>0 ? (pct.toFixed(0)+'%') : '\u2014';
+    const pBar = $('#budget-progress');
+    pBar.classList.remove('warn','danger');
+    if(pct>=90) pBar.classList.add('danger');
+    else if(pct>=75) pBar.classList.add('warn');
+    pBar.firstElementChild.style.width = Math.min(100,pct)+'%';
+  }
+  function renderCharts(){
+    // Guard: don't size/render into hidden containers (Chart.js errors when host has 0 size)
+    const host = document.getElementById('view-charts');
+    if(!host || host.offsetParent === null) return;
+    const cats = categoryTotals();
+    const labels = Object.keys(cats); const data = Object.values(cats);
+    const colors = labels.map((_,i)=>'hsl('+((i*47)%360)+' 80% 60%)');
+    if(catChart) catChart.destroy();
+    catChart = new Chart($('#cat-chart').getContext('2d'), {
+      type:'doughnut',
+      data:{labels,datasets:[{data,backgroundColor:colors,borderColor:'rgba(255,255,255,0.2)',borderWidth:1}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{
+        legend:{position:'bottom',labels:{color:getCSS('--text'),font:{family:'Inter'}}},
+        tooltip:{callbacks:{label:(ctx)=>ctx.label+': '+fmt(ctx.parsed)}}
+      }}
+    });
+    const daily = dailyTotals();
+    const dl=Object.keys(daily), dv=Object.values(daily);
+    if(trendChart) trendChart.destroy();
+    trendChart = new Chart($('#trend-chart').getContext('2d'), {
+      type:'bar',
+      data:{labels:dl,datasets:[{label:'Daily Spend',data:dv,backgroundColor:'rgba(34,211,238,0.6)',borderColor:'rgba(124,156,255,1)',borderWidth:1,borderRadius:8}]},
+      options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:(ctx)=>fmt(ctx.parsed.y)}}},
+        scales:{x:{ticks:{color:getCSS('--text-dim')},grid:{color:'rgba(255,255,255,0.06)'}},
+                y:{ticks:{color:getCSS('--text-dim'),callback:(v)=>fmt(v)},grid:{color:'rgba(255,255,255,0.06)'}}}}
+    });
+  }
+  function renderAll(redrawCharts){
+    if(redrawCharts===undefined) redrawCharts=true;
+    renderBody(); renderStats();
+    if(redrawCharts) renderCharts();
+    if(currentView === 'reports') renderReports();
+  }
+
+  /* ---------------- Persistence ---------------- */
+  function saveMonth(silent){
+    localStorage.setItem(monthKey(setup.id, currentMonth), JSON.stringify(rows));
+    if(!silent) toast('Saved '+currentMonth);
+  }
+  function loadMonth(ym){
+    currentMonth = ym;
+    const raw = localStorage.getItem(monthKey(setup.id, ym));
+    if(raw){ try{ rows = JSON.parse(raw)||[]; }catch(e){ rows=[]; } }
+    else rows = [makeBlankRow(), makeBlankRow(), makeBlankRow()];
+    rows.forEach(calcRowAmount);
+    renderAll();
+  }
+
+  /* ---------------- Toast ---------------- */
+  let toastTimer;
+  function toast(msg){
+    let t=$('#toast');
+    if(!t){ t=document.createElement('div'); t.id='toast'; document.body.appendChild(t); }
+    t.textContent = msg; t.style.opacity='1';
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> t.style.opacity='0', 1800);
+  }
+
+  /* ---------------- Export ---------------- */
+  function exportXLSX(){
+    const fields = schema().fields;
+    const sym = currencyMeta().symbol.trim();
+    const priceIdx = fields.findIndex(f=>f.calc==='price');
+    const qtyIdx   = fields.findIndex(f=>f.calc==='qty');
+    const amtIdx   = fields.findIndex(f=>f.type==='amount');
+    // Columns: S/N + schema fields
+    const headers = ['S/N', ...fields.map(f=>f.label)];
+    const colLetter = (i)=>{ let s=''; i=i+1; while(i){ const m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); } return s; };
+    // Title block
+    const sectorLabel = (SECTORS[setup.sector] && SECTORS[setup.sector].label) || setup.sector;
+    const aoa = [
+      ['Expense Report'],
+      ['Sector', sectorLabel],
+      ['Month', currentMonth],
+      ['Currency', sym + ' (' + setup.currency + ')'],
+      ['Generated', new Date().toLocaleString()],
+      [],
+      headers
+    ];
+    const headerRow = aoa.length; // 1-based row index of header row
+    rows.forEach((r, idx) => {
+      const excelRow = headerRow + 1 + idx; // 1-based row in sheet
+      const line = [idx+1];
+      fields.forEach((f, fi) => {
+        if(f.type==='amount' && priceIdx>=0 && qtyIdx>=0){
+          // S/N occupies col A (index 0). Field fi sits at column index fi+1.
+          const pCol = colLetter(priceIdx+1);
+          const qCol = colLetter(qtyIdx+1);
+          line.push({ t:'n', f: pCol+excelRow+'*'+qCol+excelRow });
+        } else if(f.calc==='price' || f.calc==='qty'){
+          line.push(Number(r[f.key])||0);
+        } else {
+          line.push(r[f.key]==null? '' : r[f.key]);
+        }
+      });
+      aoa.push(line);
+    });
+    // Grand total row
+    aoa.push([]);
+    const totalRow = new Array(headers.length).fill('');
+    totalRow[0] = '';
+    totalRow[1] = 'Grand Total ('+sym+')';
+    if(amtIdx>=0 && rows.length>0){
+      const aCol = colLetter(amtIdx+1);
+      totalRow[amtIdx+1] = { t:'n', f: 'SUM('+aCol+(headerRow+1)+':'+aCol+(headerRow+rows.length)+')' };
+    }
+    aoa.push(totalRow);
+
+    const ws = XLSX.utils.aoa_to_sheet(aoa, { cellDates:true });
+    // Column widths
+    ws['!cols'] = headers.map((h,i)=> ({ wch: i===0? 6 : Math.max(14, h.length+2) }));
+    // Merge title across all columns
+    ws['!merges'] = [{ s:{r:0,c:0}, e:{r:0,c:headers.length-1} }];
+    // Number format for price/qty/amount columns
+    const numFmt = '#,##0.00;(#,##0.00);-';
+    const applyFmt = (colIdx, fmt) => {
+      for(let r=headerRow; r<headerRow+rows.length; r++){
+        const addr = colLetter(colIdx)+(r+1);
+        if(ws[addr]) ws[addr].z = fmt;
+      }
+    };
+    if(priceIdx>=0) applyFmt(priceIdx+1, numFmt);
+    if(qtyIdx>=0)   applyFmt(qtyIdx+1, '#,##0');
+    if(amtIdx>=0)   applyFmt(amtIdx+1, numFmt);
+    // Format grand total amount cell
+    if(amtIdx>=0){
+      const tAddr = colLetter(amtIdx+1)+(aoa.length);
+      if(ws[tAddr]) ws[tAddr].z = numFmt;
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, ('Exp_'+currentMonth).slice(0,31));
+    XLSX.writeFile(wb, 'expenses_'+setup.sector+'_'+currentMonth+'.xlsx');
+  }
+  function backupJSON(){
+    const dump = {};
+    for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); dump[k]=localStorage.getItem(k); }
+    const blob = new Blob([JSON.stringify(dump,null,2)],{type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'expense_backup_'+todayDate()+'.json';
+    a.click(); URL.revokeObjectURL(a.href);
+  }
+  function restoreJSON(file){
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try{
+        const data = JSON.parse(e.target.result);
+        if(typeof data!=='object'||!data) throw new Error('Invalid file');
+        Object.keys(data).forEach(k => localStorage.setItem(k, data[k]));
+        await ui.success('Restore complete \u2014 reloading.','Restored');
+        location.reload();
+      }catch(err){ ui.error('Failed to restore: '+err.message); }
+    };
+    reader.readAsText(file);
+  }
+
+  /* ---------------- Theme ---------------- */
+  function applyTheme(mode){
+    if(mode==='light') document.body.classList.add('light');
+    else document.body.classList.remove('light');
+    localStorage.setItem(K_THEME, mode);
+    const ic = $('#theme-btn');
+    if(ic) ic.innerHTML = mode==='light'
+      ? '<i class="fa-solid fa-sun"></i>'
+      : '<i class="fa-solid fa-moon"></i>';
+    if(catChart || trendChart) renderCharts();
+  }
+
+  /* ---------------- End-of-month backup prompt ---------------- */
+  async function maybePromptEndOfMonth(){
+    const d = new Date();
+    const last = new Date(d.getFullYear(), d.getMonth()+1, 0).getDate();
+    const isLastWeek = d.getDate() >= last - 1; // last 2 days of month
+    const key = todayMonth();
+    const already = localStorage.getItem(K_LAST_BACKUP_PROMPT) === key;
+    if(!isLastWeek || already) return;
+    localStorage.setItem(K_LAST_BACKUP_PROMPT, key);
+    const choice = await modal({
+      title:'End of month \u2014 back up your data',
+      variant:'warn',
+      icon:'fa-cloud-arrow-down',
+      message:"It's the end of "+key+'. Download an Excel sheet and a full JSON backup now so you never lose anything.',
+      buttons:[
+        {label:'Skip', value:'skip'},
+        {label:'Excel only', value:'xlsx', icon:'fa-file-excel'},
+        {label:'Both', value:'both', primary:true, icon:'fa-download'}
+      ]
+    });
+    if(choice==='xlsx' || choice==='both') exportXLSX();
+    if(choice==='both') backupJSON();
+  }
+
+  /* ---------------- Onboarding / Setup ---------------- */
+  function startApp(s){
+    setup = s;
+    saveProfile(s);
+    $('#onboarding').classList.add('hidden');
+    $('#app').classList.remove('hidden');
+    $('#brand-sub').textContent = setup.company + ' \u00B7 ' + setup.name + ' (' + setup.role + ')';
+    $('#sector-tag').innerHTML = '<i class="fa-solid fa-briefcase"></i> ' + schema().label;
+    $('#currency-sel').value = setup.currency || 'NGN';
+    renderHead();
+    const m = $('#month'); m.value = todayMonth();
+    loadMonth(m.value);
+    const b = localStorage.getItem(budgetKey(setup.id));
+    $('#budget').value = b || '';
+    renderStats();
+    setTimeout(maybePromptEndOfMonth, 800);
+  }
+
+  function bindOnboarding(){
+    renderProfileChips();
+    $('#ob-start').addEventListener('click', async () => {
+      const name = $('#ob-name').value.trim();
+      const company = $('#ob-company').value.trim();
+      const role = $('#ob-role').value.trim();
+      const sector = $('#ob-sector').value;
+      const currency = $('#ob-currency').value || 'NGN';
+      if(!name||!company||!role||!sector){ await ui.warn('Please fill in all fields before continuing.','Missing details'); return; }
+      const id = window.__pickedProfileId || generateId();
+      window.__pickedProfileId = null;
+      const s = { id, name, company, role, sector, currency };
+      localStorage.setItem(K_SETUP, JSON.stringify(s));
+      startApp(s);
+    });
+  }
+
+  /* ---------------- Events ---------------- */
+  function bindEvents(){
+    bindTabs();
+    $('#add-row').addEventListener('click', () => { rows.push(makeBlankRow()); renderAll(); });
+    $('#save-month').addEventListener('click', () => saveMonth(false));
+    $('#export-xlsx').addEventListener('click', exportXLSX);
+    $('#backup-json').addEventListener('click', backupJSON);
+    $('#restore-btn').addEventListener('click', () => $('#restore-file').click());
+    $('#restore-file').addEventListener('change', (e) => { const f=e.target.files[0]; if(f) restoreJSON(f); });
+    $('#month').addEventListener('change', (e) => { saveMonth(true); loadMonth(e.target.value); });
+    $('#search').addEventListener('input', (e) => { searchTerm = e.target.value.trim(); renderBody(); });
+    $('#budget').addEventListener('input', (e) => {
+      localStorage.setItem(budgetKey(setup.id), e.target.value||'');
+      renderStats();
+    });
+    $('#currency-sel').addEventListener('change', (e) => {
+      setup.currency = e.target.value;
+      localStorage.setItem(K_SETUP, JSON.stringify(setup));
+      saveProfile(setup);
+      renderAll();
+    });
+    $('#theme-btn').addEventListener('click', () => {
+      const isLight = document.body.classList.contains('light');
+      applyTheme(isLight?'dark':'light');
+    });
+    $('#reset-btn').addEventListener('click', async () => {
+      const ok = await ui.confirm(
+        'This signs you out of the current workspace. Your saved monthly data and profile history are kept on this device.',
+        'Reset workspace?',
+        {okLabel:'Reset', okIcon:'fa-rotate-left', variant:'warn'}
+      );
+      if(ok){ localStorage.removeItem(K_SETUP); location.reload(); }
+    });
+    document.addEventListener('click', (e) => {
+      const t = e.target.closest('.accordion-toggle');
+      if(t){ $('#'+t.dataset.acc).classList.toggle('open'); }
+    });
+    window.addEventListener('resize', () => { if(catChart) catChart.resize(); if(trendChart) trendChart.resize(); });
+    // Auto-save before unload so typed data isn't lost
+    window.addEventListener('beforeunload', () => { try{ if(setup&&currentMonth) saveMonth(true); }catch(e){} });
+  }
+
+  /* ---------------- Views (Tabs) ---------------- */
+  let currentView = 'tracker';
+  function switchView(name){
+    currentView = name;
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    const view = document.getElementById('view-'+name);
+    const tab = document.querySelector('.nav-tab[data-view="'+name+'"]');
+    if(view) view.classList.add('active');
+    if(tab) tab.classList.add('active');
+    if(name === 'charts'){
+      // Defer to next frame so layout is computed before Chart.js measures
+      requestAnimationFrame(() => { try{ renderCharts(); }catch(e){ console.error(e); } });
+    } else if(name === 'reports'){
+      requestAnimationFrame(renderReports);
+    }
+  }
+  function bindTabs(){
+    document.querySelectorAll('.nav-tab').forEach(t => {
+      t.addEventListener('click', () => switchView(t.dataset.view));
+    });
+  }
+
+  /* ---------------- Analytical Report ---------------- */
+  function escapeHTML(str){
+    return String(str==null?'':str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  const SECTOR_ADVICE = {
+    construction: [
+      {t:'Bulk Materials Negotiation', d:'Consolidate cement, steel, and aggregate orders with a single supplier to unlock volume discounts.'},
+      {t:'Equipment Rental vs Purchase', d:'Audit equipment line items: anything used <40% of the month is usually cheaper to rent.'},
+      {t:'Site-Labour Productivity', d:'Track labour cost per square metre completed; flag weeks where the ratio jumps >15%.'}
+    ],
+    food: [
+      {t:'Ingredient Yield Tracking', d:'Cross-reference top food categories against sales to detect spoilage and over-portioning.'},
+      {t:'Supplier Rotation', d:'Re-bid your top 3 ingredient suppliers quarterly to keep cost-of-goods aligned with market prices.'},
+      {t:'Energy Off-Peak Prep', d:'Shift prep cycles to off-peak utility hours; high-power equipment is a frequent silent overspend.'}
+    ],
+    retail: [
+      {t:'Inventory Turn Discipline', d:'Tie restock orders to 30-day sell-through rates rather than gut feel; slow stock is trapped cash.'},
+      {t:'Payment Processing Audit', d:'Review card-processing fees monthly; switching tiers above a volume threshold usually saves 0.3-0.8%.'},
+      {t:'Promotional ROI', d:'Tag marketing spend with the campaign; kill any campaign that doesn\'t pay back within 3 months.'}
+    ],
+    tech: [
+      {t:'SaaS Subscription Sweep', d:'Cancel or downgrade any tool with <60% active-seat utilisation in the last 30 days.'},
+      {t:'Cloud Right-Sizing', d:'Compute spend usually has 20-30% headroom; schedule a right-sizing review monthly.'},
+      {t:'Contractor vs FTE', d:'For roles billed >120 hours/month, model the FTE equivalent including benefits before renewing.'}
+    ],
+    health: [
+      {t:'Consumables Par Levels', d:'Set min/max par levels for gloves, syringes, and reagents so reorders trigger by quantity, not panic.'},
+      {t:'Equipment Service Contracts', d:'Bundle preventative maintenance across devices with one vendor; bundled rates typically beat per-call by 20%.'},
+      {t:'Compliance Training Spend', d:'Schedule recertifications in cohorts to avoid premium last-minute training pricing.'}
+    ],
+    transport: [
+      {t:'Fuel Card Telemetry', d:'Cross-check fuel receipts against odometer logs; idle and route deviation are top leak categories.'},
+      {t:'Tyre & Maintenance Cadence', d:'Move to mileage-based maintenance scheduling; calendar-based servicing usually overspends by 10-15%.'},
+      {t:'Route Density', d:'Cluster routes by ZIP/sector — a 5% improvement in stops-per-route compounds quickly.'}
+    ],
+    education: [
+      {t:'Print to Digital Shift', d:'Recurring print-and-copy costs are a top hidden line item; LMS adoption typically cuts it by 30%.'},
+      {t:'Licence Pool Sharing', d:'For lab/software licences, share concurrent-use pools across departments instead of per-seat purchases.'},
+      {t:'Facility Off-Hours', d:'Set HVAC and lighting schedules to academic calendar — weekends and breaks are frequent overspend windows.'}
+    ],
+    creative: [
+      {t:'Asset & Stock Library Audit', d:'Replace per-asset purchases with a single subscription once monthly spend exceeds the subscription tier.'},
+      {t:'Project-Based Cost Coding', d:'Tag every expense to a client project so you can compute true project margin, not just billable hours.'},
+      {t:'Render & Compute Bursting', d:'Use pay-per-minute cloud render only for crunch periods; flat workstations cover steady-state load cheaper.'}
+    ],
+    realestate: [
+      {t:'Maintenance Reserve Discipline', d:'Allocate 8-12% of rental income to a maintenance reserve so capex spikes don\'t blow the month.'},
+      {t:'Vendor Pricing Refresh', d:'Re-bid cleaning, landscaping, and HVAC contracts every 18 months; incumbent inertia is expensive.'},
+      {t:'Utility Sub-Metering', d:'Where tenants are billed flat, sub-meter heavy utilities to recover true cost.'}
+    ],
+    personal: [
+      {t:'50/30/20 Sanity Check', d:'Compare your category mix to a 50% needs / 30% wants / 20% savings target — adjust the loudest outlier first.'},
+      {t:'Subscription Sweep', d:'Cancel any subscription you have not actively used in the last 60 days.'},
+      {t:'Auto-Save Match', d:'Match every category you overspent by the same amount into savings next month to keep the budget honest.'}
+    ],
+    general: [
+      {t:'Categorise Aggressively', d:'Anything in "Uncategorized" hides the real story — tag every row before reading the report.'},
+      {t:'Top-3 Focus Rule', d:'Your top 3 categories typically drive 70%+ of spend; optimise there first, ignore the long tail.'},
+      {t:'Weekly Cadence', d:'Reviewing weekly instead of monthly cuts the average overrun by half.'}
+    ]
+  };
+  function renderReports(){
+    const host = document.getElementById('report-content');
+    if(!host) return;
+    const validRows = rows.filter(r => Number(r.amount) > 0);
+    if(!validRows.length){
+      host.innerHTML = '<div class="glass report-section report-empty"><i class="fa-solid fa-chart-column"></i><div>No expense data yet. Add entries on the Tracker tab to generate your report.</div></div>';
+      return;
+    }
+    const total = validRows.reduce((a,r) => a + Number(r.amount||0), 0);
+    const count = validRows.length;
+    const avg = total / count;
+    // Velocity: spend per day across distinct dates (fallback to days in month)
+    const datesSet = new Set(validRows.map(r => r.date).filter(Boolean));
+    const activeDays = Math.max(datesSet.size, 1);
+    const velocity = total / activeDays;
+    // Budget health
+    const budgetRaw = parseFloat(localStorage.getItem(budgetKey(setup.id)) || '0') || 0;
+    const utilPct = budgetRaw > 0 ? (total / budgetRaw) * 100 : 0;
+    let healthLabel = 'No budget set', healthColor = 'var(--text-dim)';
+    if(budgetRaw > 0){
+      if(utilPct < 70){ healthLabel = 'Healthy'; healthColor = 'var(--ok)'; }
+      else if(utilPct < 95){ healthLabel = 'Caution'; healthColor = 'var(--warn)'; }
+      else { healthLabel = 'Over Budget'; healthColor = 'var(--danger)'; }
+    }
+    // Category allocation
+    const cats = categoryTotals();
+    const catEntries = Object.entries(cats).sort((a,b) => b[1] - a[1]);
+    // Anomaly detection: stdev-based — z-score > 1.5 OR >2.5x average
+    const amounts = validRows.map(r => Number(r.amount));
+    const mean = amounts.reduce((a,b) => a+b, 0) / amounts.length;
+    const variance = amounts.reduce((a,b) => a + Math.pow(b-mean,2), 0) / amounts.length;
+    const stdev = Math.sqrt(variance);
+    const anomalies = validRows.map(r => {
+      const amt = Number(r.amount);
+      const z = stdev > 0 ? (amt - mean) / stdev : 0;
+      return { row:r, amt, z };
+    }).filter(x => x.z > 1.5 || x.amt > mean * 2.5).sort((a,b) => b.amt - a.amt).slice(0, 8);
+    // Sector advice
+    const sectorKey = (setup && setup.sector) || 'general';
+    const advice = SECTOR_ADVICE[sectorKey] || SECTOR_ADVICE.general;
+    const sectorLabel = (SECTORS[sectorKey] && SECTORS[sectorKey].label) || sectorKey;
+
+    let html = '';
+    // Executive narrative
+    html += '<div class="glass report-section">';
+    html += '<h3><i class="fa-solid fa-file-lines"></i> Executive Narrative</h3>';
+    html += '<div class="report-narrative">';
+    html += 'For the current period (<strong>' + escapeHTML(currentMonth) + '</strong>), total outflow reached <strong>' + fmt(total) + '</strong> across <strong>' + count + '</strong> transactions. ';
+    html += 'Active spending velocity is running at <strong>' + fmt(velocity) + '/day</strong> across <strong>' + activeDays + '</strong> active day' + (activeDays===1?'':'s') + '. ';
+    if(budgetRaw > 0){
+      html += 'Budget utilisation stands at <strong style="color:' + healthColor + '">' + utilPct.toFixed(1) + '%</strong> &#8212; health rating <strong style="color:' + healthColor + '">' + healthLabel + '</strong>.';
+    } else {
+      html += 'No monthly budget is configured &#8212; set one on the Tracker tab to enable health checks.';
+    }
+    html += '</div>';
+    html += '<div class="report-grid" style="margin-top:14px">';
+    html += '<div class="report-metric"><div class="lbl">Total Outflow</div><div class="val">' + fmt(total) + '</div><div class="sub">' + count + ' transactions</div></div>';
+    html += '<div class="report-metric"><div class="lbl">Average Transaction</div><div class="val">' + fmt(avg) + '</div><div class="sub">Baseline cost unit</div></div>';
+    html += '<div class="report-metric"><div class="lbl">Spending Velocity</div><div class="val">' + fmt(velocity) + '</div><div class="sub">per active day</div></div>';
+    html += '<div class="report-metric"><div class="lbl">Budget Health</div><div class="val" style="color:' + healthColor + '">' + healthLabel + '</div><div class="sub">' + (budgetRaw>0 ? utilPct.toFixed(1)+'% utilised' : 'Not configured') + '</div></div>';
+    html += '</div></div>';
+
+    // Cost allocation
+    html += '<div class="glass report-section">';
+    html += '<h3><i class="fa-solid fa-chart-pie"></i> Cost Allocation Share Index</h3>';
+    if(catEntries.length === 0){
+      html += '<div class="report-narrative" style="color:var(--text-dim)">No categorised entries yet.</div>';
+    } else {
+      catEntries.forEach(([name, amount]) => {
+        const pct = total > 0 ? (amount / total) * 100 : 0;
+        html += '<div class="allocation-row">';
+        html += '<div class="name">' + escapeHTML(name) + '</div>';
+        html += '<div class="bar"><span style="width:' + pct.toFixed(2) + '%"></span></div>';
+        html += '<div class="amt">' + fmt(amount) + '</div>';
+        html += '<div class="pct">' + pct.toFixed(1) + '%</div>';
+        html += '</div>';
+      });
+    }
+    html += '</div>';
+
+    // Anomalies
+    html += '<div class="glass report-section">';
+    html += '<h3><i class="fa-solid fa-triangle-exclamation"></i> Outlier &amp; Anomaly Scanner</h3>';
+    if(anomalies.length === 0){
+      html += '<div class="report-narrative" style="color:var(--text-dim)">No statistically significant outliers detected. All transactions are within the normal cost envelope (mean ' + fmt(mean) + ', \u03C3 ' + fmt(stdev) + ').</div>';
+    } else {
+      html += '<div class="report-narrative" style="margin-bottom:12px">Detected <strong>' + anomalies.length + '</strong> transaction' + (anomalies.length===1?'':'s') + ' significantly above the baseline average of <strong>' + fmt(mean) + '</strong>:</div>';
+      anomalies.forEach(a => {
+        const severe = a.z > 3 || a.amt > mean * 4;
+        const desc = (a.row.description || a.row.category || 'Untitled transaction');
+        const cat = a.row.category || 'Uncategorized';
+        const date = a.row.date || '';
+        const ratio = mean > 0 ? (a.amt / mean).toFixed(1) : 'N/A';
+        html += '<div class="anomaly-item' + (severe?' danger':'') + '">';
+        html += '<div class="desc"><div class="t">' + escapeHTML(desc) + '</div>';
+        html += '<div class="s">' + escapeHTML(cat) + (date?' &#183; '+escapeHTML(date):'') + ' &#183; ' + ratio + 'x average' + '</div></div>';
+        html += '<div class="amt">' + fmt(a.amt) + '</div>';
+        html += '</div>';
+      });
+    }
+    html += '</div>';
+
+    // Advice
+    html += '<div class="glass report-section">';
+    html += '<h3><i class="fa-solid fa-lightbulb"></i> Actionable Advice &#8212; ' + escapeHTML(sectorLabel) + '</h3>';
+    html += '<div class="advice-list">';
+    advice.forEach(a => {
+      html += '<div class="advice-item"><i class="fa-solid fa-circle-check"></i>';
+      html += '<div class="body"><div class="t">' + escapeHTML(a.t) + '</div><div class="d">' + escapeHTML(a.d) + '</div></div>';
+      html += '</div>';
+    });
+    html += '</div></div>';
+
+    host.innerHTML = html;
+  }
+
+
+  /* ---------------- Copy-to-clipboard for Support ---------------- */
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('.copy-btn');
+    if(!btn) return;
+    const text = btn.getAttribute('data-copy') || '';
+    const label = btn.getAttribute('data-label') || 'Copied';
+    const done = () => {
+      const original = btn.innerHTML;
+      btn.classList.add('copied');
+      btn.innerHTML = '<svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg> Copied';
+      try{ toast(label); }catch(err){}
+      setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = original; }, 1800);
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try{ document.execCommand('copy'); }finally{ document.body.removeChild(ta); }
+        done();
+      });
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); }finally{ document.body.removeChild(ta); }
+      done();
+    }
+  });
+
+  /* ---------------- Boot ---------------- */
+  function boot(){
+    const theme = localStorage.getItem(K_THEME) || 'dark';
+    applyTheme(theme);
+    bindOnboarding();
+    bindEvents();
+    // Legacy migration: ensure stored profiles list has IDs
+    try {
+      const arr = JSON.parse(localStorage.getItem(K_PROFILES)||'[]');
+      let changed = false;
+      arr.forEach(p => { if(!p.id){ p.id = generateId(); changed = true; } });
+      if(changed) localStorage.setItem(K_PROFILES, JSON.stringify(arr));
+    } catch(e){}
+    const raw = localStorage.getItem(K_SETUP);
+    if(raw){
+      try{
+        const s = JSON.parse(raw);
+        if(!s.currency) s.currency = 'NGN';
+        if(!s.id){
+          // Legacy profile: assign a new ID and migrate sector-scoped keys to id-scoped keys
+          s.id = generateId();
+          const oldBudget = localStorage.getItem('expense_budget_' + s.sector);
+          if(oldBudget !== null) localStorage.setItem(budgetKey(s.id), oldBudget);
+          const prefix = 'expenses_' + s.sector + '_';
+          for(let i=0;i<localStorage.length;i++){
+            const k = localStorage.key(i);
+            if(k && k.indexOf(prefix)===0){
+              const ym = k.slice(prefix.length);
+              const v = localStorage.getItem(k);
+              if(v!==null) localStorage.setItem('expenses_' + s.id + '_' + ym, v);
+            }
+          }
+          localStorage.setItem(K_SETUP, JSON.stringify(s));
+        }
+        startApp(s);
+        return;
+      }catch(e){}
+    }
+    $('#onboarding').classList.remove('hidden');
+    $('#app').classList.add('hidden');
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+//]]>
+</script>
+</body>
+</html>
